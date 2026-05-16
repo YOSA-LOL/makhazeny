@@ -1,0 +1,174 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
+
+interface Customer {
+  id: string
+  name: string
+  phone?: string
+  email?: string
+  address?: string
+  city?: string
+  creditLimit: number
+}
+
+interface CustomerFormProps {
+  customer?: Customer
+  onSuccess?: () => void
+}
+
+export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    city: '',
+    creditLimit: '0',
+  })
+
+  useEffect(() => {
+    if (customer) {
+      setFormData({
+        name: customer.name,
+        phone: customer.phone || '',
+        email: customer.email || '',
+        address: customer.address || '',
+        city: customer.city || '',
+        creditLimit: String(customer.creditLimit),
+      })
+    }
+  }, [customer])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const url = customer ? `/api/customers/${customer.id}` : '/api/customers'
+      const method = customer ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          creditLimit: parseFloat(formData.creditLimit),
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success(customer ? 'Customer updated successfully' : 'Customer created successfully')
+        onSuccess?.()
+        if (!customer) {
+          setFormData({
+            name: '',
+            phone: '',
+            email: '',
+            address: '',
+            city: '',
+            creditLimit: '0',
+          })
+        }
+      } else {
+        toast.error(result.error || 'Failed to save customer')
+      }
+    } catch (error) {
+      console.error('Failed to save customer:', error)
+      toast.error('Failed to save customer')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{customer ? 'Edit Customer' : 'Add New Customer'}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Customer Name *</Label>
+              <Input
+                id="name"
+                placeholder="Enter customer name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                placeholder="+201001234567"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="customer@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                placeholder="Enter city"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                placeholder="Enter address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="creditLimit">Credit Limit (EGP)</Label>
+              <Input
+                id="creditLimit"
+                type="number"
+                placeholder="0.00"
+                step="0.01"
+                value={formData.creditLimit}
+                onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Saving...' : customer ? 'Update Customer' : 'Create Customer'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
