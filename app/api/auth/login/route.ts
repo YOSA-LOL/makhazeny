@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { comparePasswords, signToken, setAuthCookie } from '@/lib/auth'
 import { loginSchema } from '@/lib/validation'
 
@@ -17,9 +17,7 @@ export async function POST(req: NextRequest) {
 
     const { email, password } = parsed.data
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-    })
+    const user = store.users.findByEmail(email)
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })

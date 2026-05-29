@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { categorySchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const categories = await prisma.category.findMany({
-      orderBy: { name: 'asc' },
-    })
+    const categories = store.categories.findMany()
 
     return NextResponse.json({ success: true, data: categories })
   } catch (error) {
@@ -43,10 +41,7 @@ export async function POST(req: NextRequest) {
 
     const { name } = validation.data
 
-    // Check if category already exists
-    const existingCategory = await prisma.category.findUnique({
-      where: { name },
-    })
+    const existingCategory = store.categories.findByName(name)
 
     if (existingCategory) {
       return NextResponse.json(
@@ -55,9 +50,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const category = await prisma.category.create({
-      data: { name },
-    })
+    const category = store.categories.create(name)
 
     return NextResponse.json(
       { success: true, data: category },

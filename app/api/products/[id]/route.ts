@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { productSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(
   req: NextRequest,
@@ -16,10 +15,7 @@ export async function GET(
 
     const { id } = await params
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: { category: true },
-    })
+    const product = store.products.findById(id)
 
     if (!product) {
       return NextResponse.json(
@@ -59,9 +55,7 @@ export async function PUT(
       )
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-    })
+    const product = store.products.findById(id)
 
     if (!product) {
       return NextResponse.json(
@@ -70,31 +64,31 @@ export async function PUT(
       )
     }
 
-    const updateData: any = {}
+    if (validation.data.sku && validation.data.sku !== product.sku) {
+      const existingSku = store.products.findBySku(validation.data.sku)
+      if (existingSku) {
+        return NextResponse.json(
+          { error: 'SKU already exists' },
+          { status: 400 }
+        )
+      }
+    }
+
+    const updateData: Record<string, unknown> = {}
     if (validation.data.name) updateData.name = validation.data.name
     if (validation.data.sku) updateData.sku = validation.data.sku
-    if (validation.data.description !== undefined) updateData.description = validation.data.description
+    if (validation.data.description !== undefined) updateData.description = validation.data.description ?? null
     if (validation.data.categoryId) updateData.categoryId = validation.data.categoryId
-    if (validation.data.purchasePrice !== undefined) updateData.purchasePrice = new Decimal(validation.data.purchasePrice)
-    if (validation.data.sellingPrice !== undefined) updateData.sellingPrice = new Decimal(validation.data.sellingPrice)
+    if (validation.data.purchasePrice !== undefined) updateData.purchasePrice = validation.data.purchasePrice
+    if (validation.data.sellingPrice !== undefined) updateData.sellingPrice = validation.data.sellingPrice
     if (validation.data.quantity !== undefined) updateData.quantity = validation.data.quantity
     if (validation.data.lowStockLevel !== undefined) updateData.lowStockLevel = validation.data.lowStockLevel
-    if (validation.data.barcode !== undefined) updateData.barcode = validation.data.barcode
+    if (validation.data.barcode !== undefined) updateData.barcode = validation.data.barcode ?? null
 
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data: updateData,
-      include: { category: true },
-    })
+    const updatedProduct = store.products.update(id, updateData)
 
     return NextResponse.json({ success: true, data: updatedProduct })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'SKU already exists' },
-        { status: 400 }
-      )
-    }
+  } catch (error) {
     console.error('Failed to update product:', error)
     return NextResponse.json(
       { error: 'Failed to update product' },
@@ -115,20 +109,14 @@ export async function DELETE(
 
     const { id } = await params
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-    })
+    const deleted = store.products.delete(id)
 
-    if (!product) {
+    if (!deleted) {
       return NextResponse.json(
         { error: 'Product not found' },
         { status: 404 }
       )
     }
-
-    await prisma.product.delete({
-      where: { id },
-    })
 
     return NextResponse.json({ success: true, message: 'Product deleted' })
   } catch (error) {

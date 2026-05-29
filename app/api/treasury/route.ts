@@ -1,7 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
+
+const INCOME_TYPES = ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME']
+const EXPENSE_TYPES = ['SUPPLIER_PAYMENT', 'MANUAL_EXPENSE', 'RETURN_REFUND']
+
+function calcSummary(transactions: { type: string; amount: number }[], openingBalance: number) {
+  const income = transactions
+    .filter((t) => INCOME_TYPES.includes(t.type))
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const expenses = transactions
+    .filter((t) => EXPENSE_TYPES.includes(t.type))
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const profit = income - expenses
+  const closingBalance = openingBalance + profit
+
+  return { income, expenses, profit, closingBalance }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,48 +28,16 @@ export async function GET(req: NextRequest) {
     }
 
     const searchParams = req.nextUrl.searchParams
-    const date = searchParams.get('date') // specific date or 'today'
+    const date = searchParams.get('date') ?? undefined
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    let whereDate: any = {}
-    if (date === 'today') {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-
-      whereDate = {
-        date: {
-          gte: today,
-          lt: tomorrow,
-        },
-      }
-    } else if (date) {
-      const selectedDate = new Date(date)
-      selectedDate.setHours(0, 0, 0, 0)
-      const nextDay = new Date(selectedDate)
-      nextDay.setDate(nextDay.getDate() + 1)
-
-      whereDate = {
-        date: {
-          gte: selectedDate,
-          lt: nextDay,
-        },
-      }
-    }
-
-    const [treasuries, total] = await Promise.all([
-      prisma.treasury.findMany({
-        where: whereDate,
-        include: { transactions: true, dailyBalance: true },
-        skip,
-        take: limit,
-        orderBy: { date: 'desc' },
-      }),
-      prisma.treasury.count({ where: whereDate }),
-    ])
+    const { items: treasuries, total } = store.treasury.findMany({
+      date,
+      skip,
+      limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -73,7 +58,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Get current day's treasury summary
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -87,67 +71,23 @@ export async function POST(req: NextRequest) {
     if (action === 'get-today') {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
 
-      let treasury = await prisma.treasury.findFirst({
-        where: {
-          date: {
-            gte: today,
-            lt: tomorrow,
-          },
-        },
-        include: {
-          transactions: true,
-          dailyBalance: true,
-        },
-      })
+      let treasury = store.treasury.findByDate(today)
 
       if (!treasury) {
-        // Get yesterday's closing balance for opening balance
-        const yesterday = new Date(today)
-        yesterday.setDate(yesterday.getDate() - 1)
-        yesterday.setHours(0, 0, 0, 0)
+        const lastTreasury = store.treasury.findPreviousDay(today)
+        const openingBalance = lastTreasury?.dailyBalance?.closingBalance ?? 0
 
-        const lastTreasury = await prisma.treasury.findFirst({
-          where: {
-            date: {
-              gte: yesterday,
-              lt: today,
-            },
-          },
-          include: { dailyBalance: true },
-        })
-
-        const openingBalance = lastTreasury?.dailyBalance?.closingBalance || new Decimal(0)
-
-        // Create today's treasury with opening balance
-        treasury = await prisma.treasury.create({
-          data: {
-            date: today,
-            openingBalance: openingBalance,
-            closingBalance: openingBalance,
-            notes: `Treasury opened with balance from previous day`,
-          },
-          include: {
-            transactions: true,
-            dailyBalance: true,
-          },
+        treasury = store.treasury.create({
+          date: today,
+          openingBalance,
+          closingBalance: openingBalance,
+          notes: 'Treasury opened with balance from previous day',
         })
       }
 
-      // Calculate today's summary
       const transactions = treasury.transactions || []
-      const income = transactions
-        .filter((t) => ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME'].includes(t.type))
-        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
-
-      const expenses = transactions
-        .filter((t) => ['SUPPLIER_PAYMENT', 'MANUAL_EXPENSE', 'RETURN_REFUND'].includes(t.type))
-        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
-
-      const profit = income.minus(expenses)
-      const closingBalance = (treasury.openingBalance as Decimal | unknown as Decimal).plus(profit)
+      const summary = calcSummary(transactions, treasury.openingBalance)
 
       return NextResponse.json({
         success: true,
@@ -155,10 +95,7 @@ export async function POST(req: NextRequest) {
           treasury,
           summary: {
             openingBalance: treasury.openingBalance,
-            income,
-            expenses,
-            profit,
-            closingBalance,
+            ...summary,
             transactionCount: transactions.length,
           },
         },

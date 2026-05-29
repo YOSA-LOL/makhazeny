@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
+
+const INCOME_TYPES = ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME']
+const EXPENSE_TYPES = ['SUPPLIER_PAYMENT', 'MANUAL_EXPENSE', 'RETURN_REFUND']
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,9 +13,8 @@ export async function GET(req: NextRequest) {
     }
 
     const searchParams = req.nextUrl.searchParams
-    const days = parseInt(searchParams.get('days') || '7') // last N days
+    const days = parseInt(searchParams.get('days') || '7')
 
-    // Get the date range
     const endDate = new Date()
     endDate.setHours(23, 59, 59, 999)
 
@@ -21,35 +22,21 @@ export async function GET(req: NextRequest) {
     startDate.setDate(startDate.getDate() - (days - 1))
     startDate.setHours(0, 0, 0, 0)
 
-    // Get treasury records for the date range
-    const treasuries = await prisma.treasury.findMany({
-      where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      include: {
-        transactions: true,
-        dailyBalance: true,
-      },
-      orderBy: { date: 'asc' },
-    })
+    const treasuries = store.treasury.findInDateRange(startDate, endDate)
 
-    // Calculate summaries for each day
     const dailySummaries = treasuries.map((treasury) => {
       const transactions = treasury.transactions || []
 
       const income = transactions
-        .filter((t) => ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME'].includes(t.type))
-        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
+        .filter((t) => INCOME_TYPES.includes(t.type))
+        .reduce((sum, t) => sum + t.amount, 0)
 
       const expenses = transactions
-        .filter((t) => ['SUPPLIER_PAYMENT', 'MANUAL_EXPENSE', 'RETURN_REFUND'].includes(t.type))
-        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
+        .filter((t) => EXPENSE_TYPES.includes(t.type))
+        .reduce((sum, t) => sum + t.amount, 0)
 
-      const profit = income.minus(expenses)
-      const closingBalance = (treasury.openingBalance as unknown as Decimal).plus(profit)
+      const profit = income - expenses
+      const closingBalance = treasury.openingBalance + profit
 
       return {
         date: treasury.date,
@@ -62,51 +49,39 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Calculate totals
     const totals = {
-      totalIncome: dailySummaries.reduce((sum, d) => sum.plus(d.income), new Decimal(0)),
-      totalExpenses: dailySummaries.reduce((sum, d) => sum.plus(d.expenses), new Decimal(0)),
-      totalProfit: dailySummaries.reduce((sum, d) => sum.plus(d.profit), new Decimal(0)),
-      averageDailyIncome: new Decimal(0),
-      averageDailyExpense: new Decimal(0),
-      averageDailyProfit: new Decimal(0),
+      totalIncome: dailySummaries.reduce((sum, d) => sum + d.income, 0),
+      totalExpenses: dailySummaries.reduce((sum, d) => sum + d.expenses, 0),
+      totalProfit: dailySummaries.reduce((sum, d) => sum + d.profit, 0),
+      averageDailyIncome: 0,
+      averageDailyExpense: 0,
+      averageDailyProfit: 0,
     }
 
     if (dailySummaries.length > 0) {
-      totals.averageDailyIncome = totals.totalIncome.dividedBy(dailySummaries.length)
-      totals.averageDailyExpense = totals.totalExpenses.dividedBy(dailySummaries.length)
-      totals.averageDailyProfit = totals.totalProfit.dividedBy(dailySummaries.length)
+      totals.averageDailyIncome = totals.totalIncome / dailySummaries.length
+      totals.averageDailyExpense = totals.totalExpenses / dailySummaries.length
+      totals.averageDailyProfit = totals.totalProfit / dailySummaries.length
     }
 
-    // Get current balance (today's closing)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const todayTreasury = await prisma.treasury.findFirst({
-      where: {
-        date: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-      include: { transactions: true },
-    })
+    const todayTreasury = store.treasury.findByDate(today)
 
-    let currentBalance = new Decimal(0)
+    let currentBalance = 0
     if (todayTreasury) {
       const todayTransactions = todayTreasury.transactions || []
       const todayIncome = todayTransactions
-        .filter((t) => ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME'].includes(t.type))
-        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
+        .filter((t) => INCOME_TYPES.includes(t.type))
+        .reduce((sum, t) => sum + t.amount, 0)
 
       const todayExpenses = todayTransactions
-        .filter((t) => ['SUPPLIER_PAYMENT', 'MANUAL_EXPENSE', 'RETURN_REFUND'].includes(t.type))
-        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
+        .filter((t) => EXPENSE_TYPES.includes(t.type))
+        .reduce((sum, t) => sum + t.amount, 0)
 
-      const todayProfit = todayIncome.minus(todayExpenses)
-      currentBalance = (todayTreasury.openingBalance as unknown as Decimal).plus(todayProfit)
+      const todayProfit = todayIncome - todayExpenses
+      currentBalance = todayTreasury.openingBalance + todayProfit
     }
 
     return NextResponse.json({

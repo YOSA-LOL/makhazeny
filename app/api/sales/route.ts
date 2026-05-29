@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { saleSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,30 +16,11 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    const where: any = {}
-    if (search) {
-      where.OR = [
-        { saleNumber: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
-      ]
-    }
-
-    const [sales, total] = await Promise.all([
-      prisma.sale.findMany({
-        where,
-        include: {
-          customer: true,
-          items: {
-            include: { product: true },
-          },
-          debt: true,
-        },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.sale.count({ where }),
-    ])
+    const { items: sales, total } = store.sales.findMany({
+      search: search || undefined,
+      skip,
+      limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -80,10 +60,7 @@ export async function POST(req: NextRequest) {
 
     const { customerId, paymentMethod, notes, items } = validation.data
 
-    // Verify customer exists
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-    })
+    const customer = store.customers.findById(customerId)
 
     if (!customer) {
       return NextResponse.json(
@@ -92,103 +69,61 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Calculate total and verify products
-    let totalAmount = new Decimal(0)
-    const itemsWithValidation = await Promise.all(
-      items.map(async (item) => {
-        const product = await prisma.product.findUnique({
-          where: { id: item.productId },
-        })
+    let totalAmount = 0
+    const itemsWithValidation = items.map((item) => {
+      const product = store.products.findById(item.productId)
 
-        if (!product) {
-          throw new Error(`Product ${item.productId} not found`)
-        }
+      if (!product) {
+        throw new Error(`Product ${item.productId} not found`)
+      }
 
-        if (product.quantity < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`)
-        }
+      if (product.quantity < item.quantity) {
+        throw new Error(`Insufficient stock for ${product.name}`)
+      }
 
-        const itemTotal = new Decimal(item.price).times(item.quantity)
-        totalAmount = totalAmount.plus(itemTotal)
+      const itemTotal = item.price * item.quantity
+      totalAmount += itemTotal
 
-        return {
-          ...item,
-          total: itemTotal,
-        }
-      })
-    )
-
-    // Generate sale number
-    const lastSale = await prisma.sale.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { saleNumber: true },
+      return {
+        ...item,
+        total: itemTotal,
+      }
     })
 
-    const lastNumber = lastSale?.saleNumber ? parseInt(lastSale.saleNumber.split('-')[1] || '0') : 0
+    const lastSaleNumber = store.sales.findLastSaleNumber()
+    const lastNumber = lastSaleNumber ? parseInt(lastSaleNumber.split('-')[1] || '0') : 0
     const saleNumber = `SALE-${String(lastNumber + 1).padStart(6, '0')}`
 
-    // Create sale with items
-    const sale = await prisma.sale.create({
-      data: {
-        saleNumber,
-        customerId,
-        totalAmount,
-        paidAmount: new Decimal(0),
-        status: 'PENDING',
-        paymentMethod,
-        notes,
-        items: {
-          create: itemsWithValidation.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: new Decimal(item.price),
-            total: item.total,
-          })),
-        },
-      },
-      include: {
-        customer: true,
-        items: {
-          include: { product: true },
-        },
-      },
+    const sale = store.sales.create({
+      saleNumber,
+      customerId,
+      totalAmount,
+      paymentMethod,
+      notes,
+      items: itemsWithValidation,
     })
 
-    // Update product quantities
-    await Promise.all(
-      itemsWithValidation.map((item) =>
-        prisma.product.update({
-          where: { id: item.productId },
-          data: {
-            quantity: {
-              decrement: item.quantity,
-            },
-          },
-        })
-      )
-    )
-
-    // Create debt record
-    if (totalAmount.toNumber() > 0) {
-      await prisma.debt.create({
-        data: {
-          saleId: sale.id,
-          customerId,
-          originalAmount: totalAmount,
-          remainingAmount: totalAmount,
-          status: 'ACTIVE',
-        },
+    if (totalAmount > 0) {
+      store.debts.create({
+        saleId: sale.id,
+        customerId,
+        originalAmount: totalAmount,
+        remainingAmount: totalAmount,
+        status: 'ACTIVE',
       })
     }
 
+    const fullSale = store.sales.findById(sale.id)!
+
     return NextResponse.json(
-      { success: true, data: sale },
+      { success: true, data: fullSale },
       { status: 201 }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to create sale:', error)
+    const message = error instanceof Error ? error.message : 'Failed to create sale'
     return NextResponse.json(
-      { error: error.message || 'Failed to create sale' },
+      { error: message },
       { status: 400 }
     )
   }

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { customerSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,39 +16,15 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    const where: any = {}
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-
-    const [customers, total] = await Promise.all([
-      prisma.customer.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          debts: {
-            where: { status: { in: ['ACTIVE', 'PARTIAL', 'OVERDUE'] } },
-            select: { remainingAmount: true },
-          },
-        },
-      }),
-      prisma.customer.count({ where }),
-    ])
-
-    const customersWithDebt = customers.map((customer) => ({
-      ...customer,
-      totalDebt: customer.debts.reduce((sum, debt) => sum.plus(debt.remainingAmount), new Decimal(0)),
-    }))
+    const { items: customers, total } = store.customers.findMany({
+      search: search || undefined,
+      skip,
+      limit,
+    })
 
     return NextResponse.json({
       success: true,
-      data: customersWithDebt,
+      data: customers,
       pagination: {
         page,
         limit,
@@ -85,28 +60,20 @@ export async function POST(req: NextRequest) {
 
     const { name, phone, email, address, city, creditLimit } = validation.data
 
-    const customer = await prisma.customer.create({
-      data: {
-        name,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
-        city: city || null,
-        creditLimit: new Decimal(creditLimit),
-      },
+    const customer = store.customers.create({
+      name,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      city: city || null,
+      creditLimit,
     })
 
     return NextResponse.json(
       { success: true, data: customer },
       { status: 201 }
     )
-  } catch (error: any) {
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Email already exists' },
-        { status: 400 }
-      )
-    }
+  } catch (error) {
     console.error('Failed to create customer:', error)
     return NextResponse.json(
       { error: 'Failed to create customer' },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { getCurrentUser } from '@/lib/auth'
 
 export async function GET(
@@ -14,16 +14,7 @@ export async function GET(
 
     const { id } = await params
 
-    const sale = await prisma.sale.findUnique({
-      where: { id },
-      include: {
-        customer: true,
-        items: {
-          include: { product: true },
-        },
-        debt: true,
-      },
-    })
+    const sale = store.sales.findById(id)
 
     if (!sale) {
       return NextResponse.json(
@@ -56,10 +47,7 @@ export async function PUT(
     const body = await req.json()
     const { status, paidAmount, notes } = body
 
-    const sale = await prisma.sale.findUnique({
-      where: { id },
-      include: { items: true },
-    })
+    const sale = store.sales.findById(id)
 
     if (!sale) {
       return NextResponse.json(
@@ -68,22 +56,12 @@ export async function PUT(
       )
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (status) updateData.status = status
     if (paidAmount !== undefined) updateData.paidAmount = paidAmount
     if (notes !== undefined) updateData.notes = notes
 
-    const updatedSale = await prisma.sale.update({
-      where: { id },
-      data: updateData,
-      include: {
-        customer: true,
-        items: {
-          include: { product: true },
-        },
-        debt: true,
-      },
-    })
+    const updatedSale = store.sales.update(id, updateData)
 
     return NextResponse.json({ success: true, data: updatedSale })
   } catch (error) {
@@ -107,35 +85,14 @@ export async function DELETE(
 
     const { id } = await params
 
-    const sale = await prisma.sale.findUnique({
-      where: { id },
-      include: { items: true },
-    })
+    const deleted = store.sales.delete(id)
 
-    if (!sale) {
+    if (!deleted) {
       return NextResponse.json(
         { error: 'Sale not found' },
         { status: 404 }
       )
     }
-
-    // Restore inventory
-    await Promise.all(
-      sale.items.map((item) =>
-        prisma.product.update({
-          where: { id: item.productId },
-          data: {
-            quantity: {
-              increment: item.quantity,
-            },
-          },
-        })
-      )
-    )
-
-    await prisma.sale.delete({
-      where: { id },
-    })
 
     return NextResponse.json({ success: true, message: 'Sale deleted' })
   } catch (error) {

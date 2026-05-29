@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(
   req: NextRequest,
@@ -15,17 +14,7 @@ export async function GET(
 
     const { id } = await params
 
-    const returnRecord = await prisma.return.findUnique({
-      where: { id },
-      include: {
-        sale: {
-          include: { customer: true, items: true },
-        },
-        items: {
-          include: { product: true },
-        },
-      },
-    })
+    const returnRecord = store.returns.findById(id)
 
     if (!returnRecord) {
       return NextResponse.json(
@@ -58,10 +47,7 @@ export async function PUT(
     const body = await req.json()
     const { status, notes } = body
 
-    const returnRecord = await prisma.return.findUnique({
-      where: { id },
-      include: { items: true, sale: true },
-    })
+    const returnRecord = store.returns.findById(id)
 
     if (!returnRecord) {
       return NextResponse.json(
@@ -70,95 +56,58 @@ export async function PUT(
       )
     }
 
-    const updateData: any = {}
-    if (status) updateData.status = status
-    if (notes !== undefined) updateData.notes = notes
-
-    // If approving the return, restore inventory and adjust debt
     if (status === 'APPROVED' && returnRecord.status !== 'APPROVED') {
-      // Restore inventory
-      await Promise.all(
-        returnRecord.items.map((item) =>
-          prisma.product.update({
-            where: { id: item.productId },
-            data: {
-              quantity: {
-                increment: item.quantity,
-              },
-            },
-          })
-        )
-      )
+      for (const item of returnRecord.items) {
+        store.products.incrementQuantity(item.productId, item.quantity)
+      }
 
-      // Adjust debt if it exists
-      if (returnRecord.sale.debtId) {
-        const debt = await prisma.debt.findUnique({
-          where: { id: returnRecord.sale.debtId },
-        })
+      const debtId = returnRecord.sale.debtId
+      if (debtId) {
+        const debt = store.debts.findById(debtId)
 
         if (debt) {
-          const newRemaining = (debt.remainingAmount as unknown as Decimal).minus(returnRecord.totalReturnAmount as unknown as Decimal)
+          const newRemaining = debt.remainingAmount - returnRecord.totalReturnAmount
 
-          if (newRemaining.isNegative()) {
-            // Customer overpaid, credit their account
-            await prisma.debt.update({
-              where: { id: debt.id },
-              data: {
-                remainingAmount: new Decimal(0),
-                status: 'PAID',
-              },
+          if (newRemaining < 0) {
+            store.debts.update(debt.id, {
+              remainingAmount: 0,
+              status: 'PAID',
             })
           } else {
-            await prisma.debt.update({
-              where: { id: debt.id },
-              data: {
-                remainingAmount: newRemaining,
-              },
+            store.debts.update(debt.id, {
+              remainingAmount: newRemaining,
             })
           }
         }
       }
 
-      // Create treasury transaction for refund
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
 
-      const treasury = await prisma.treasury.findFirst({
-        where: {
-          date: {
-            gte: today,
-            lt: tomorrow,
-          },
-        },
-      })
+      const treasury = store.treasury.findByDate(today)
 
       if (treasury) {
-        await prisma.treasuryTransaction.create({
-          data: {
-            treasuryId: treasury.id,
-            type: 'RETURN_REFUND',
-            amount: returnRecord.totalReturnAmount as unknown as Decimal,
-            description: `Return refund for sale ${returnRecord.sale.saleNumber}`,
-            reference: id,
-          },
+        store.treasuryTransactions.create({
+          treasuryId: treasury.id,
+          type: 'RETURN_REFUND',
+          amount: returnRecord.totalReturnAmount,
+          description: `Return refund for sale ${returnRecord.sale.saleNumber}`,
+          reference: id,
+          saleId: null,
+          paymentId: null,
+          supplierPaymentId: null,
+          supplierId: null,
+          returnId: id,
+          expenseId: null,
         })
       }
     }
 
-    const updatedReturn = await prisma.return.update({
-      where: { id },
-      data: updateData,
-      include: {
-        sale: {
-          include: { customer: true },
-        },
-        items: {
-          include: { product: true },
-        },
-      },
-    })
+    const updateData: Record<string, unknown> = {}
+    if (status) updateData.status = status
+    if (notes !== undefined) updateData.notes = notes
+
+    const updatedReturn = store.returns.update(id, updateData)
 
     return NextResponse.json({ success: true, data: updatedReturn })
   } catch (error) {

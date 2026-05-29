@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(
   req: NextRequest,
@@ -15,10 +14,7 @@ export async function GET(
 
     const { id } = await params
 
-    const payments = await prisma.debtPayment.findMany({
-      where: { debtId: id },
-      orderBy: { createdAt: 'desc' },
-    })
+    const payments = store.payments.findByDebtId(id)
 
     return NextResponse.json({ success: true, data: payments })
   } catch (error) {
@@ -51,10 +47,7 @@ export async function POST(
       )
     }
 
-    // Get debt
-    const debt = await prisma.debt.findUnique({
-      where: { id: debtId },
-    })
+    const debt = store.debts.findById(debtId)
 
     if (!debt) {
       return NextResponse.json(
@@ -63,66 +56,54 @@ export async function POST(
       )
     }
 
-    const paymentAmount = new Decimal(amount)
+    const paymentAmount = Number(amount)
 
-    if (paymentAmount.greaterThan(debt.remainingAmount)) {
+    if (paymentAmount > debt.remainingAmount) {
       return NextResponse.json(
         { error: 'Payment amount exceeds remaining debt' },
         { status: 400 }
       )
     }
 
-    // Create payment
-    const payment = await prisma.debtPayment.create({
-      data: {
-        debtId,
-        amount: paymentAmount,
-        paymentMethod,
-        notes,
-      },
+    const payment = store.payments.create({
+      debtId,
+      customerId: debt.customerId,
+      amount: paymentAmount,
+      paymentMethod,
+      notes,
     })
 
-    // Update debt
-    const newRemaining = (debt.remainingAmount as unknown as Decimal).minus(paymentAmount)
-    const newStatus = newRemaining.equals(0) ? 'PAID' : newRemaining.lessThan(debt.originalAmount as unknown as Decimal) ? 'PARTIAL' : 'ACTIVE'
+    const newRemaining = debt.remainingAmount - paymentAmount
+    const newStatus =
+      newRemaining === 0
+        ? 'PAID'
+        : newRemaining < debt.originalAmount
+          ? 'PARTIAL'
+          : 'ACTIVE'
 
-    const updatedDebt = await prisma.debt.update({
-      where: { id: debtId },
-      data: {
-        remainingAmount: newRemaining,
-        status: newStatus,
-      },
-      include: {
-        customer: true,
-        payments: true,
-      },
+    const updatedDebt = store.debts.update(debtId, {
+      remainingAmount: Math.max(0, newRemaining),
+      status: newStatus as 'PAID' | 'PARTIAL' | 'ACTIVE',
     })
 
-    // Create treasury transaction for payment
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const treasury = await prisma.treasury.findFirst({
-      where: {
-        date: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-    })
+    const treasury = store.treasury.findByDate(today)
 
     if (treasury) {
-      await prisma.treasuryTransaction.create({
-        data: {
-          treasuryId: treasury.id,
-          type: 'INSTALLMENT_PAYMENT',
-          amount: paymentAmount,
-          description: `Debt payment from ${debt.customer?.name || 'Customer'}`,
-          reference: debtId,
-          paymentId: payment.id,
-        },
+      store.treasuryTransactions.create({
+        treasuryId: treasury.id,
+        type: 'INSTALLMENT_PAYMENT',
+        amount: paymentAmount,
+        description: `Debt payment from ${debt.customer?.name || 'Customer'}`,
+        reference: debtId,
+        saleId: null,
+        paymentId: payment.id,
+        supplierPaymentId: null,
+        supplierId: null,
+        returnId: null,
+        expenseId: null,
       })
     }
 

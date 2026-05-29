@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { productSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,27 +17,12 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    const where: any = {}
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-    if (categoryId) {
-      where.categoryId = categoryId
-    }
-
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        include: { category: true },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.product.count({ where }),
-    ])
+    const { items: products, total } = store.products.findMany({
+      search: search || undefined,
+      categoryId: categoryId || undefined,
+      skip,
+      limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -79,10 +63,7 @@ export async function POST(req: NextRequest) {
     const { name, sku, description, categoryId, purchasePrice, sellingPrice, quantity, lowStockLevel, barcode } =
       validation.data
 
-    // Check if SKU already exists
-    const existingSku = await prisma.product.findUnique({
-      where: { sku },
-    })
+    const existingSku = store.products.findBySku(sku)
 
     if (existingSku) {
       return NextResponse.json(
@@ -91,19 +72,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        sku,
-        description,
-        categoryId,
-        purchasePrice: new Decimal(purchasePrice),
-        sellingPrice: new Decimal(sellingPrice),
-        quantity,
-        lowStockLevel,
-        barcode,
-      },
-      include: { category: true },
+    const product = store.products.create({
+      name,
+      sku,
+      description: description ?? null,
+      categoryId,
+      purchasePrice,
+      sellingPrice,
+      quantity,
+      lowStockLevel,
+      barcode: barcode ?? null,
     })
 
     return NextResponse.json(

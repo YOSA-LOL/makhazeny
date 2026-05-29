@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,36 +10,18 @@ export async function GET(req: NextRequest) {
     }
 
     const searchParams = req.nextUrl.searchParams
-    const customerId = searchParams.get('customerId')
-    const status = searchParams.get('status')
+    const customerId = searchParams.get('customerId') ?? undefined
+    const status = searchParams.get('status') ?? undefined
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    const where: any = {}
-
-    if (customerId) {
-      where.customerId = customerId
-    }
-
-    if (status) {
-      where.status = status
-    }
-
-    const [debts, total] = await Promise.all([
-      prisma.debt.findMany({
-        where,
-        include: {
-          customer: true,
-          sale: true,
-          payments: true,
-        },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.debt.count({ where }),
-    ])
+    const { items: debts, total } = store.debts.findMany({
+      customerId,
+      status,
+      skip,
+      limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -78,19 +59,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const debt = await prisma.debt.create({
-      data: {
-        customerId,
-        originalAmount: new Decimal(amount),
-        remainingAmount: new Decimal(amount),
-        status: 'ACTIVE',
-        description,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
-      },
-      include: {
-        customer: true,
-        payments: true,
-      },
+    const debt = store.debts.create({
+      customerId,
+      originalAmount: amount,
+      remainingAmount: amount,
+      status: 'ACTIVE',
+      description,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
     })
 
     return NextResponse.json(

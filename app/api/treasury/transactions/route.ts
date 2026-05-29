@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { treasuryTransactionSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,40 +11,22 @@ export async function GET(req: NextRequest) {
     }
 
     const searchParams = req.nextUrl.searchParams
-    const treasuryId = searchParams.get('treasuryId')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-    const type = searchParams.get('type')
+    const treasuryId = searchParams.get('treasuryId') ?? undefined
+    const startDate = searchParams.get('startDate') ?? undefined
+    const endDate = searchParams.get('endDate') ?? undefined
+    const type = searchParams.get('type') ?? undefined
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
-    const where: any = {}
-
-    if (treasuryId) {
-      where.treasuryId = treasuryId
-    }
-
-    if (startDate && endDate) {
-      where.createdAt = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      }
-    }
-
-    if (type) {
-      where.type = type
-    }
-
-    const [transactions, total] = await Promise.all([
-      prisma.treasuryTransaction.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.treasuryTransaction.count({ where }),
-    ])
+    const { items: transactions, total } = store.treasuryTransactions.findMany({
+      treasuryId,
+      startDate,
+      endDate,
+      type,
+      skip,
+      limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -85,10 +66,7 @@ export async function POST(req: NextRequest) {
 
     const { treasuryId, type, amount, description, reference, saleId, paymentId, expenseId } = validation.data
 
-    // Verify treasury exists
-    const treasury = await prisma.treasury.findUnique({
-      where: { id: treasuryId },
-    })
+    const treasury = store.treasury.findById(treasuryId)
 
     if (!treasury) {
       return NextResponse.json(
@@ -97,17 +75,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const transaction = await prisma.treasuryTransaction.create({
-      data: {
-        treasuryId,
-        type,
-        amount: new Decimal(amount),
-        description,
-        reference,
-        saleId,
-        paymentId,
-        expenseId,
-      },
+    const transaction = store.treasuryTransactions.create({
+      treasuryId,
+      type,
+      amount: Number(amount),
+      description,
+      reference: reference ?? null,
+      saleId: saleId ?? null,
+      paymentId: paymentId ?? null,
+      supplierPaymentId: null,
+      supplierId: null,
+      returnId: null,
+      expenseId: expenseId ?? null,
     })
 
     return NextResponse.json(

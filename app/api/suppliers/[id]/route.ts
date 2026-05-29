@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { supplierSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
 
@@ -15,9 +15,7 @@ export async function GET(
 
     const { id } = await params
 
-    const supplier = await prisma.supplier.findUnique({
-      where: { id },
-    })
+    const supplier = store.suppliers.findById(id)
 
     if (!supplier) {
       return NextResponse.json(
@@ -57,9 +55,7 @@ export async function PUT(
       )
     }
 
-    const supplier = await prisma.supplier.findUnique({
-      where: { id },
-    })
+    const supplier = store.suppliers.findById(id)
 
     if (!supplier) {
       return NextResponse.json(
@@ -68,17 +64,14 @@ export async function PUT(
       )
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (validation.data.name) updateData.name = validation.data.name
     if (validation.data.phone !== undefined) updateData.phone = validation.data.phone || null
     if (validation.data.email !== undefined) updateData.email = validation.data.email || null
     if (validation.data.address !== undefined) updateData.address = validation.data.address || null
     if (validation.data.city !== undefined) updateData.city = validation.data.city || null
 
-    const updatedSupplier = await prisma.supplier.update({
-      where: { id },
-      data: updateData,
-    })
+    const updatedSupplier = store.suppliers.update(id, updateData)
 
     return NextResponse.json({ success: true, data: updatedSupplier })
   } catch (error) {
@@ -102,20 +95,14 @@ export async function DELETE(
 
     const { id } = await params
 
-    const supplier = await prisma.supplier.findUnique({
-      where: { id },
-    })
+    const deleted = store.suppliers.delete(id)
 
-    if (!supplier) {
+    if (!deleted) {
       return NextResponse.json(
         { error: 'Supplier not found' },
         { status: 404 }
       )
     }
-
-    await prisma.supplier.delete({
-      where: { id },
-    })
 
     return NextResponse.json({ success: true, message: 'Supplier deleted' })
   } catch (error) {

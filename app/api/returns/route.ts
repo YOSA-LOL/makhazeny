@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { returnSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,23 +16,11 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    const [returns, total] = await Promise.all([
-      prisma.return.findMany({
-        where: { status },
-        include: {
-          sale: {
-            include: { customer: true, items: true },
-          },
-          items: {
-            include: { product: true },
-          },
-        },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.return.count({ where: { status } }),
-    ])
+    const { items: returns, total } = store.returns.findMany({
+      status,
+      skip,
+      limit,
+    })
 
     return NextResponse.json({
       success: true,
@@ -73,11 +60,7 @@ export async function POST(req: NextRequest) {
 
     const { saleId, items, reason, notes } = validation.data
 
-    // Verify sale exists
-    const sale = await prisma.sale.findUnique({
-      where: { id: saleId },
-      include: { items: true, customer: true },
-    })
+    const sale = store.sales.findById(saleId)
 
     if (!sale) {
       return NextResponse.json(
@@ -86,8 +69,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Calculate return amount and validate items
-    let totalReturnAmount = new Decimal(0)
+    let totalReturnAmount = 0
     const validatedItems = items.map((item) => {
       const saleItem = sale.items.find((si) => si.id === item.saleItemId)
       if (!saleItem) {
@@ -95,11 +77,11 @@ export async function POST(req: NextRequest) {
       }
 
       if (item.quantity > saleItem.quantity) {
-        throw new Error(`Cannot return more than purchased quantity`)
+        throw new Error('Cannot return more than purchased quantity')
       }
 
-      const itemReturnAmount = (saleItem.price as unknown as Decimal).times(item.quantity)
-      totalReturnAmount = totalReturnAmount.plus(itemReturnAmount)
+      const itemReturnAmount = saleItem.price * item.quantity
+      totalReturnAmount += itemReturnAmount
 
       return {
         ...item,
@@ -109,52 +91,29 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // Generate return number
-    const lastReturn = await prisma.return.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { returnNumber: true },
-    })
-
-    const lastNumber = lastReturn?.returnNumber ? parseInt(lastReturn.returnNumber.split('-')[1] || '0') : 0
+    const lastReturnNumber = store.returns.findLastReturnNumber()
+    const lastNumber = lastReturnNumber ? parseInt(lastReturnNumber.split('-')[1] || '0') : 0
     const returnNumber = `RET-${String(lastNumber + 1).padStart(6, '0')}`
 
-    // Create return record
-    const returnRecord = await prisma.return.create({
-      data: {
-        returnNumber,
-        saleId,
-        totalReturnAmount,
-        reason,
-        notes,
-        status: 'PENDING',
-        items: {
-          create: validatedItems.map((item) => ({
-            saleItemId: item.saleItemId,
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price as unknown as Decimal,
-            returnAmount: item.returnAmount as unknown as Decimal,
-          })),
-        },
-      },
-      include: {
-        sale: {
-          include: { customer: true },
-        },
-        items: {
-          include: { product: true },
-        },
-      },
+    const returnRecord = store.returns.create({
+      returnNumber,
+      saleId,
+      customerId: sale.customerId,
+      totalReturnAmount,
+      reason,
+      notes,
+      items: validatedItems,
     })
 
     return NextResponse.json(
       { success: true, data: returnRecord },
       { status: 201 }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to create return:', error)
+    const message = error instanceof Error ? error.message : 'Failed to create return'
     return NextResponse.json(
-      { error: error.message || 'Failed to create return' },
+      { error: message },
       { status: 400 }
     )
   }

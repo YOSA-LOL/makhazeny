@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { store } from '@/lib/store'
 import { customerSchema } from '@/lib/validation'
 import { getCurrentUser } from '@/lib/auth'
-import { Decimal } from 'decimal.js'
 
 export async function GET(
   req: NextRequest,
@@ -16,15 +15,7 @@ export async function GET(
 
     const { id } = await params
 
-    const customer = await prisma.customer.findUnique({
-      where: { id },
-      include: {
-        debts: {
-          where: { status: { in: ['ACTIVE', 'PARTIAL', 'OVERDUE'] } },
-          select: { remainingAmount: true },
-        },
-      },
-    })
+    const customer = store.customers.findById(id)
 
     if (!customer) {
       return NextResponse.json(
@@ -33,9 +24,7 @@ export async function GET(
       )
     }
 
-    const totalDebt = customer.debts.reduce((sum, debt) => sum.plus(debt.remainingAmount), new Decimal(0))
-
-    return NextResponse.json({ success: true, data: { ...customer, totalDebt } })
+    return NextResponse.json({ success: true, data: customer })
   } catch (error) {
     console.error('Failed to fetch customer:', error)
     return NextResponse.json(
@@ -66,9 +55,7 @@ export async function PUT(
       )
     }
 
-    const customer = await prisma.customer.findUnique({
-      where: { id },
-    })
+    const customer = store.customers.findById(id)
 
     if (!customer) {
       return NextResponse.json(
@@ -77,18 +64,15 @@ export async function PUT(
       )
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (validation.data.name) updateData.name = validation.data.name
     if (validation.data.phone !== undefined) updateData.phone = validation.data.phone || null
     if (validation.data.email !== undefined) updateData.email = validation.data.email || null
     if (validation.data.address !== undefined) updateData.address = validation.data.address || null
     if (validation.data.city !== undefined) updateData.city = validation.data.city || null
-    if (validation.data.creditLimit !== undefined) updateData.creditLimit = new Decimal(validation.data.creditLimit)
+    if (validation.data.creditLimit !== undefined) updateData.creditLimit = validation.data.creditLimit
 
-    const updatedCustomer = await prisma.customer.update({
-      where: { id },
-      data: updateData,
-    })
+    const updatedCustomer = store.customers.update(id, updateData)
 
     return NextResponse.json({ success: true, data: updatedCustomer })
   } catch (error) {
@@ -112,20 +96,14 @@ export async function DELETE(
 
     const { id } = await params
 
-    const customer = await prisma.customer.findUnique({
-      where: { id },
-    })
+    const deleted = store.customers.delete(id)
 
-    if (!customer) {
+    if (!deleted) {
       return NextResponse.json(
         { error: 'Customer not found' },
         { status: 404 }
       )
     }
-
-    await prisma.customer.delete({
-      where: { id },
-    })
 
     return NextResponse.json({ success: true, message: 'Customer deleted' })
   } catch (error) {
