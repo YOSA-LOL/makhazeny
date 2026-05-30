@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
 import { DebtsList } from '@/components/debts/debts-list'
@@ -17,6 +18,8 @@ interface Debt {
 }
 
 export default function DebtsPage() {
+  const t = useTranslations('debts')
+
   const [selectedDebt, setSelectedDebt] = useState<Debt>()
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -27,10 +30,7 @@ export default function DebtsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Debt & Installment Management"
-        description="Monitor outstanding customer debts and record installment payments."
-      />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
 
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2">

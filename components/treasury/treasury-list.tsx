@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -28,6 +29,9 @@ interface TreasuryListProps {
 }
 
 export function TreasuryList({ onView }: TreasuryListProps) {
+  const t = useTranslations('treasury')
+  const tc = useTranslations('common')
+
   const [treasuries, setTreasuries] = useState<Treasury[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -58,11 +62,11 @@ export function TreasuryList({ onView }: TreasuryListProps) {
         setTreasuries(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error(result.error || 'Failed to fetch treasury records')
+        toast.error(result.error || t('failedFetchRecords'))
       }
     } catch (error) {
       console.error('Failed to fetch treasury:', error)
-      toast.error('Failed to fetch treasury records')
+      toast.error(t('failedFetchRecords'))
     } finally {
       setLoading(false)
     }
@@ -119,13 +123,13 @@ export function TreasuryList({ onView }: TreasuryListProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Opening Balance</TableHead>
-                    <TableHead className="text-right">Daily Income</TableHead>
-                    <TableHead className="text-right">Daily Expense</TableHead>
-                    <TableHead className="text-right">Daily Profit</TableHead>
-                    <TableHead className="text-right">Closing Balance</TableHead>
-                    <TableHead className="text-right">Transactions</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-end">Opening Balance</TableHead>
+                    <TableHead className="text-end">Daily Income</TableHead>
+                    <TableHead className="text-end">Daily Expense</TableHead>
+                    <TableHead className="text-end">Daily Profit</TableHead>
+                    <TableHead className="text-end">Closing Balance</TableHead>
+                    <TableHead className="text-end">Transactions</TableHead>
+                    <TableHead className="text-end">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -145,23 +149,23 @@ export function TreasuryList({ onView }: TreasuryListProps) {
                     return (
                       <TableRow key={treasury.id}>
                         <TableCell className="font-medium">{formatDate(treasury.date)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(treasury.openingBalance)}</TableCell>
-                        <TableCell className="text-right text-success font-medium">
+                        <TableCell className="text-end">{formatCurrency(treasury.openingBalance)}</TableCell>
+                        <TableCell className="text-end text-success font-medium">
                           {formatCurrency(dailyIncome)}
                         </TableCell>
-                        <TableCell className="text-right text-destructive font-medium">
+                        <TableCell className="text-end text-destructive font-medium">
                           {formatCurrency(dailyExpense)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-end">
                           <Badge variant={dailyProfit >= 0 ? 'success' : 'destructive'}>
                             {formatCurrency(dailyProfit)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-bold">{formatCurrency(treasury.closingBalance)}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-end font-bold">{formatCurrency(treasury.closingBalance)}</TableCell>
+                        <TableCell className="text-end">
                           <Badge variant="outline">{treasury.transactions?.length || 0}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-end">
                           <Button variant="ghost" size="sm" onClick={() => onView?.(treasury)}>
                             <Eye className="h-4 w-4" />
                           </Button>

@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,9 @@ interface SupplierListProps {
 }
 
 export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
+  const t = useTranslations('suppliers')
+  const tc = useTranslations('common')
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -49,18 +53,18 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
         setSuppliers(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error(result.error || 'Failed to fetch suppliers')
+        toast.error(result.error || t('failedFetch'))
       }
     } catch (error) {
       console.error('Failed to fetch suppliers:', error)
-      toast.error('Failed to fetch suppliers')
+      toast.error(t('failedFetch'))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleDelete(supplierId: string) {
-    if (!confirm('Are you sure you want to delete this supplier?')) return
+    if (!confirm(tc('confirmDeleteSupplier'))) return
 
     try {
       const response = await fetch(`/api/suppliers/${supplierId}`, {
@@ -69,15 +73,15 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success('Supplier deleted successfully')
+        toast.success(t('deleted'))
         fetchSuppliers()
         onDelete?.(supplierId)
       } else {
-        toast.error(result.error || 'Failed to delete supplier')
+        toast.error(result.error || t('failedDelete'))
       }
     } catch (error) {
       console.error('Failed to delete supplier:', error)
-      toast.error('Failed to delete supplier')
+      toast.error(t('failedDelete'))
     }
   }
 
@@ -88,9 +92,9 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Suppliers</span>
-          <div className="flex-1 max-w-sm ml-auto">
+          <div className="flex-1 max-w-sm ms-auto">
             <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute start-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search suppliers..."
                 value={search}
@@ -98,7 +102,7 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
                   setSearch(e.target.value)
                   setPage(1)
                 }}
-                className="pl-8"
+                className="ps-8"
               />
             </div>
           </div>
@@ -123,8 +127,8 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
                     <TableHead>Phone</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>City</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-end">Balance</TableHead>
+                    <TableHead className="text-end">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -134,13 +138,13 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
                       <TableCell>{supplier.phone || '-'}</TableCell>
                       <TableCell>{supplier.email || '-'}</TableCell>
                       <TableCell>{supplier.city || '-'}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         {new Intl.NumberFormat('ar-EG', {
                           style: 'currency',
                           currency: 'EGP',
                         }).format(Number(supplier.balance))}
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
+                      <TableCell className="flex justify-end gap-2 text-end">
                         <Button variant="ghost" size="sm" onClick={() => onEdit?.(supplier)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>

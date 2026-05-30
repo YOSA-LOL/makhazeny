@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -18,6 +19,8 @@ interface Sale {
 }
 
 export default function SalesPage() {
+  const t = useTranslations('sales')
+
   const [refreshKey, setRefreshKey] = useState(0)
 
   const handleSuccess = () => {
@@ -26,15 +29,12 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Sales & POS System"
-        description="Process point-of-sale transactions and review sales history."
-      />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
 
       <Tabs defaultValue="pos" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="pos">Point of Sale (POS)</TabsTrigger>
-          <TabsTrigger value="list">Sales History</TabsTrigger>
+          <TabsTrigger value="pos">{t('pos')}</TabsTrigger>
+          <TabsTrigger value="list">{t('history')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pos" className="space-y-4">

@@ -93,31 +93,31 @@ export const statToneClasses: Record<
   { border: string; icon: string; value: string; iconBg: string }
 > = {
   default: {
-    border: 'border-l-primary',
+    border: 'border-s-primary',
     icon: 'text-primary',
     value: 'text-foreground',
     iconBg: 'bg-primary/10',
   },
   success: {
-    border: 'border-l-success',
+    border: 'border-s-success',
     icon: 'text-success',
     value: 'text-success',
     iconBg: 'bg-success/10',
   },
   danger: {
-    border: 'border-l-destructive',
+    border: 'border-s-destructive',
     icon: 'text-destructive',
     value: 'text-destructive',
     iconBg: 'bg-destructive/10',
   },
   warning: {
-    border: 'border-l-warning',
+    border: 'border-s-warning',
     icon: 'text-warning-foreground',
     value: 'text-warning-foreground',
     iconBg: 'bg-warning/20',
   },
   info: {
-    border: 'border-l-info',
+    border: 'border-s-info',
     icon: 'text-info',
     value: 'text-info',
     iconBg: 'bg-info/10',

@@ -145,15 +145,15 @@ export const DATE_FORMATS = {
 
 // Navigation Menu Items (href must match an existing app route)
 export const MENU_ITEMS = [
-  { label: 'Dashboard', href: '/', icon: 'LayoutGrid' },
-  { label: 'Products', href: '/products', icon: 'Package' },
-  { label: 'Customers', href: '/customers', icon: 'Users' },
-  { label: 'Suppliers', href: '/suppliers', icon: 'Truck' },
-  { label: 'Sales', href: '/sales', icon: 'ShoppingCart' },
-  { label: 'Treasury', href: '/treasury', icon: 'Wallet' },
-  { label: 'Debts', href: '/debts', icon: 'AlertCircle' },
-  { label: 'Returns', href: '/returns', icon: 'RotateCcw' },
-  { label: 'Reports', href: '/reports', icon: 'BarChart3' },
+  { key: 'dashboard', href: '/', icon: 'LayoutGrid' },
+  { key: 'products', href: '/products', icon: 'Package' },
+  { key: 'customers', href: '/customers', icon: 'Users' },
+  { key: 'suppliers', href: '/suppliers', icon: 'Truck' },
+  { key: 'sales', href: '/sales', icon: 'ShoppingCart' },
+  { key: 'treasury', href: '/treasury', icon: 'Wallet' },
+  { key: 'debts', href: '/debts', icon: 'AlertCircle' },
+  { key: 'returns', href: '/returns', icon: 'RotateCcw' },
+  { key: 'reports', href: '/reports', icon: 'BarChart3' },
 ] as const
 
 // API Response Helpers

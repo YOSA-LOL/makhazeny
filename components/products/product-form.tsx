@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -33,6 +34,8 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ product, onSuccess }: ProductFormProps) {
+  const t = useTranslations('products')
+  const tc = useTranslations('common')
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -102,7 +105,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success(product ? 'Product updated successfully' : 'Product created successfully')
+        toast.success(product ? t('updated') : t('created'))
         onSuccess?.()
         if (!product) {
           setFormData({
@@ -118,11 +121,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           })
         }
       } else {
-        toast.error(result.error || 'Failed to save product')
+        toast.error(result.error || t('failedSave'))
       }
     } catch (error) {
       console.error('Failed to save product:', error)
-      toast.error('Failed to save product')
+      toast.error(t('failedSave'))
     } finally {
       setLoading(false)
     }
@@ -131,16 +134,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{product ? 'Edit Product' : 'Add New Product'}</CardTitle>
+        <CardTitle>{product ? t('titleEdit') : t('titleAdd')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Product Name *</Label>
+              <Label htmlFor="name">{t('productNameRequired')}</Label>
               <Input
                 id="name"
-                placeholder="Enter product name"
+                placeholder={t('enterProductName')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -148,10 +151,10 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU *</Label>
+              <Label htmlFor="sku">{t('skuRequired')}</Label>
               <Input
                 id="sku"
-                placeholder="e.g., PROD-001"
+                placeholder={t('skuPlaceholder')}
                 value={formData.sku}
                 onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                 required
@@ -160,10 +163,13 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select value={formData.categoryId} onValueChange={(value) => setFormData({ ...formData, categoryId: value })}>
+              <Label htmlFor="category">{t('categoryRequired')}</Label>
+              <Select
+                value={formData.categoryId}
+                onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+              >
                 <SelectTrigger id="category">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={t('selectCategory')} />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -176,21 +182,21 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="barcode">Barcode</Label>
+              <Label htmlFor="barcode">{tc('barcode')}</Label>
               <Input
                 id="barcode"
-                placeholder="Enter barcode"
+                placeholder={t('enterBarcode')}
                 value={formData.barcode}
                 onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="purchasePrice">Purchase Price (EGP) *</Label>
+              <Label htmlFor="purchasePrice">{t('purchasePrice')}</Label>
               <Input
                 id="purchasePrice"
                 type="number"
-                placeholder="0.00"
+                placeholder={tc('amountZero')}
                 step="0.01"
                 value={formData.purchasePrice}
                 onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
@@ -199,11 +205,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sellingPrice">Selling Price (EGP) *</Label>
+              <Label htmlFor="sellingPrice">{t('sellingPrice')}</Label>
               <Input
                 id="sellingPrice"
                 type="number"
-                placeholder="0.00"
+                placeholder={tc('amountZero')}
                 step="0.01"
                 value={formData.sellingPrice}
                 onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
@@ -212,7 +218,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="quantity">Initial Quantity *</Label>
+              <Label htmlFor="quantity">{t('initialQuantity')}</Label>
               <Input
                 id="quantity"
                 type="number"
@@ -224,11 +230,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lowStockLevel">Low Stock Level *</Label>
+              <Label htmlFor="lowStockLevel">{t('lowStockLevel')}</Label>
               <Input
                 id="lowStockLevel"
                 type="number"
-                placeholder="10"
+                placeholder={t('lowStockDefault')}
                 value={formData.lowStockLevel}
                 onChange={(e) => setFormData({ ...formData, lowStockLevel: e.target.value })}
                 required
@@ -237,10 +243,10 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{tc('description')}</Label>
             <Textarea
               id="description"
-              placeholder="Enter product description"
+              placeholder={t('enterDescription')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
@@ -249,7 +255,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
           <div className="flex gap-4">
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : product ? 'Update Product' : 'Create Product'}
+              {loading ? tc('saving') : product ? t('updateProduct') : t('createProduct')}
             </Button>
           </div>
         </form>

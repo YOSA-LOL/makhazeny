@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { useEnumLabels } from '@/hooks/use-enum-labels'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -26,12 +28,25 @@ interface TreasuryTransactionsProps {
   limit?: number
 }
 
+const TYPE_OPTIONS = [
+  'SALES_INCOME',
+  'INSTALLMENT_PAYMENT',
+  'MANUAL_INCOME',
+  'SUPPLIER_PAYMENT',
+  'MANUAL_EXPENSE',
+  'RETURN_REFUND',
+] as const
+
 export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransactionsProps) {
+  const t = useTranslations('treasury')
+  const tc = useTranslations('common')
+  const enumLabels = useEnumLabels()
+
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [typeFilter, setTypeFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
 
   useEffect(() => {
     fetchTransactions()
@@ -49,7 +64,7 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
         params.append('treasuryId', treasuryId)
       }
 
-      if (typeFilter) {
+      if (typeFilter !== 'all') {
         params.append('type', typeFilter)
       }
 
@@ -60,11 +75,11 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
         setTransactions(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error('Failed to fetch transactions')
+        toast.error(t('failedFetchTransactions'))
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
-      toast.error('Failed to fetch transactions')
+      toast.error(t('failedFetchTransactions'))
     } finally {
       setLoading(false)
     }
@@ -85,40 +100,30 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
     })
   }
 
-  const getTypeLabel = (type: string) => {
-    const labels: { [key: string]: string } = {
-      SALES_INCOME: 'Sales Income',
-      INSTALLMENT_PAYMENT: 'Installment',
-      MANUAL_INCOME: 'Manual Income',
-      SUPPLIER_PAYMENT: 'Supplier Payment',
-      MANUAL_EXPENSE: 'Manual Expense',
-      RETURN_REFUND: 'Return Refund',
-    }
-    return labels[type] || type
-  }
-
   const pages = Math.ceil(total / limit)
 
   return (
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Transactions</span>
-          <Select value={typeFilter} onValueChange={(value) => {
-            setTypeFilter(value)
-            setPage(1)
-          }}>
+          <span>{t('transactionsTitle')}</span>
+          <Select
+            value={typeFilter}
+            onValueChange={(value) => {
+              setTypeFilter(value)
+              setPage(1)
+            }}
+          >
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="All types" />
+              <SelectValue placeholder={t('filterPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
-              <SelectItem value="SALES_INCOME">Sales Income</SelectItem>
-              <SelectItem value="INSTALLMENT_PAYMENT">Installments</SelectItem>
-              <SelectItem value="MANUAL_INCOME">Manual Income</SelectItem>
-              <SelectItem value="SUPPLIER_PAYMENT">Supplier Payment</SelectItem>
-              <SelectItem value="MANUAL_EXPENSE">Manual Expense</SelectItem>
-              <SelectItem value="RETURN_REFUND">Returns</SelectItem>
+              <SelectItem value="all">{t('filterAllTypes')}</SelectItem>
+              {TYPE_OPTIONS.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {enumLabels.treasuryType(type)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </CardTitle>
@@ -126,23 +131,21 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
           </div>
         ) : transactions.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No transactions found.
-          </div>
+          <div className="py-8 text-center text-muted-foreground">{t('transactionsEmpty')}</div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-muted-foreground font-medium">Time</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="font-medium text-muted-foreground">{tc('time')}</TableHead>
+                    <TableHead>{tc('type')}</TableHead>
+                    <TableHead>{tc('description')}</TableHead>
+                    <TableHead>{tc('reference')}</TableHead>
+                    <TableHead className="text-end">{tc('amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -151,14 +154,14 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
                       <TableCell className="text-sm">{formatTime(transaction.createdAt)}</TableCell>
                       <TableCell>
                         <Badge variant={getTreasuryTransactionBadgeVariant(transaction.type)}>
-                          {getTypeLabel(transaction.type)}
+                          {enumLabels.treasuryType(transaction.type)}
                         </Badge>
                       </TableCell>
                       <TableCell>{transaction.description}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {transaction.reference || '-'}
+                        {transaction.reference || tc('emptyDash')}
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-end font-medium">
                         <span
                           className={
                             isIncomeTransaction(transaction.type)
@@ -177,9 +180,14 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
             </div>
 
             {pages > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="mt-4 flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} transactions
+                  {tc('showingRange', {
+                    from: (page - 1) * limit + 1,
+                    to: Math.min(page * limit, total),
+                    total,
+                    entity: t('transactionsEntity'),
+                  })}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -188,7 +196,7 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
                   >
-                    Previous
+                    {tc('previous')}
                   </Button>
                   {Array.from({ length: Math.min(pages, 5) }, (_, i) => i + 1).map((p) => (
                     <Button
@@ -206,7 +214,7 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
                     onClick={() => setPage(Math.min(pages, page + 1))}
                     disabled={page === pages}
                   >
-                    Next
+                    {tc('next')}
                   </Button>
                 </div>
               </div>

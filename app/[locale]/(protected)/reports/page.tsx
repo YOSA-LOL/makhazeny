@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,9 @@ interface Report {
 }
 
 export default function ReportsPage() {
+  const t = useTranslations('reports')
+  const tc = useTranslations('common')
+
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [loading, setLoading] = useState(false)
@@ -40,12 +44,12 @@ export default function ReportsPage() {
 
   const handleGenerateReport = async (reportType: string) => {
     if (!startDate || !endDate) {
-      toast.error('Please select start and end dates')
+      toast.error(t('selectDates'))
       return
     }
 
     if (new Date(startDate) > new Date(endDate)) {
-      toast.error('Start date must be before end date')
+      toast.error(t('startBeforeEnd'))
       return
     }
 
@@ -66,13 +70,13 @@ export default function ReportsPage() {
             generatedAt: new Date().toLocaleString('ar-EG'),
           },
         ])
-        toast.success(`${reportType} report generated successfully`)
+        toast.success(t('generatedSuccess', { reportType }))
       } else {
-        toast.error(result.error || 'Failed to generate report')
+        toast.error(result.error || t('failedGenerate'))
       }
     } catch (error) {
       console.error('Failed to generate report:', error)
-      toast.error('Failed to generate report')
+      toast.error(t('failedGenerate'))
     } finally {
       setLoading(false)
     }
@@ -123,19 +127,16 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Reports & Analytics"
-        description="Generate sales, inventory, customer, and debt reports for any date range."
-      />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
 
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Generate Reports</CardTitle>
+          <CardTitle>{t('generateTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
+              <Label htmlFor="startDate">{tc('startDate')}</Label>
               <Input
                 id="startDate"
                 type="date"
@@ -144,7 +145,7 @@ export default function ReportsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
+              <Label htmlFor="endDate">{tc('endDate')}</Label>
               <Input
                 id="endDate"
                 type="date"
@@ -160,35 +161,35 @@ export default function ReportsPage() {
               disabled={loading}
               variant="outline"
             >
-              Sales Report
+              {t('salesReport')}
             </Button>
             <Button
               onClick={() => handleGenerateReport('products')}
               disabled={loading}
               variant="outline"
             >
-              Products Report
+              {t('productsReport')}
             </Button>
             <Button
               onClick={() => handleGenerateReport('customers')}
               disabled={loading}
               variant="outline"
             >
-              Customers Report
+              {t('customersReport')}
             </Button>
             <Button
               onClick={() => handleGenerateReport('debts')}
               disabled={loading}
               variant="outline"
             >
-              Debts Report
+              {t('debtsReport')}
             </Button>
             <Button
               onClick={() => handleGenerateReport('inventory')}
               disabled={loading}
               variant="outline"
             >
-              Inventory Report
+              {t('inventoryReport')}
             </Button>
           </div>
         </CardContent>
@@ -210,35 +211,35 @@ export default function ReportsPage() {
             <TabsContent value="sales">
               <Card className="shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Sales Report</CardTitle>
+                  <CardTitle>{t('salesReportTitle')}</CardTitle>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => exportReportAsCSV('sales')}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
+                    <Download className="h-4 w-4 me-2" />
+                    {tc('export')}
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ReportStatsGrid
                     stats={[
-                      { label: 'Total Sales', value: reports.find((r) => r.type === 'sales')?.data?.totalSales || 0, tone: 'info' },
-                      { label: 'Total Revenue', value: formatCurrency(reports.find((r) => r.type === 'sales')?.data?.totalAmount || 0), tone: 'success' },
-                      { label: 'Paid', value: formatCurrency(reports.find((r) => r.type === 'sales')?.data?.totalPaid || 0), tone: 'default' },
-                      { label: 'Unpaid', value: formatCurrency(reports.find((r) => r.type === 'sales')?.data?.totalUnpaid || 0), tone: 'warning' },
+                      { label: t('totalSales'), value: reports.find((r) => r.type === 'sales')?.data?.totalSales || 0, tone: 'info' },
+                      { label: t('totalRevenue'), value: formatCurrency(reports.find((r) => r.type === 'sales')?.data?.totalAmount || 0), tone: 'success' },
+                      { label: t('paid'), value: formatCurrency(reports.find((r) => r.type === 'sales')?.data?.totalPaid || 0), tone: 'default' },
+                      { label: t('unpaid'), value: formatCurrency(reports.find((r) => r.type === 'sales')?.data?.totalUnpaid || 0), tone: 'warning' },
                     ]}
                   />
 
                   {reports.find((r) => r.type === 'sales')?.data?.topProducts && (
                     <div className="mt-6">
-                      <h4 className="font-semibold mb-3">Top 10 Products</h4>
+                      <h4 className="mb-3 font-semibold">{t('topProducts')}</h4>
                       <div className="space-y-2">
                         {reports.find((r) => r.type === 'sales')?.data?.topProducts?.map((product: any, idx: number) => (
                           <div key={idx} className="flex justify-between items-center p-2 bg-muted rounded">
                             <span>{product.name}</span>
-                            <div className="text-right">
-                              <p className="text-sm">Qty: {product.quantity}</p>
+                            <div className="text-end">
+                              <p className="text-sm">{tc('qtyPrefix', { quantity: product.quantity })}</p>
                               <p className="font-medium">{formatCurrency(product.revenue)}</p>
                             </div>
                           </div>
@@ -256,23 +257,23 @@ export default function ReportsPage() {
             <TabsContent value="products">
               <Card className="shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Products Report</CardTitle>
+                  <CardTitle>{t('productsReportTitle')}</CardTitle>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => exportReportAsCSV('products')}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
+                    <Download className="h-4 w-4 me-2" />
+                    {tc('export')}
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ReportStatsGrid
                     stats={[
-                      { label: 'Total Products', value: reports.find((r) => r.type === 'products')?.data?.totalProducts || 0, tone: 'info' },
-                      { label: 'Low Stock', value: reports.find((r) => r.type === 'products')?.data?.lowStockCount || 0, tone: 'warning' },
-                      { label: 'Out of Stock', value: reports.find((r) => r.type === 'products')?.data?.outOfStockCount || 0, tone: 'danger' },
-                      { label: 'Inventory Value', value: formatCurrency(reports.find((r) => r.type === 'products')?.data?.totalInventoryValue || 0), tone: 'success' },
+                      { label: t('totalProducts'), value: reports.find((r) => r.type === 'products')?.data?.totalProducts || 0, tone: 'info' },
+                      { label: t('lowStock'), value: reports.find((r) => r.type === 'products')?.data?.lowStockCount || 0, tone: 'warning' },
+                      { label: t('outOfStock'), value: reports.find((r) => r.type === 'products')?.data?.outOfStockCount || 0, tone: 'danger' },
+                      { label: t('inventoryValue'), value: formatCurrency(reports.find((r) => r.type === 'products')?.data?.totalInventoryValue || 0), tone: 'success' },
                     ]}
                   />
                 </CardContent>
@@ -285,23 +286,23 @@ export default function ReportsPage() {
             <TabsContent value="customers">
               <Card className="shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Customers Report</CardTitle>
+                  <CardTitle>{t('customersReportTitle')}</CardTitle>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => exportReportAsCSV('customers')}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
+                    <Download className="h-4 w-4 me-2" />
+                    {tc('export')}
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ReportStatsGrid
                     stats={[
-                      { label: 'Total Customers', value: reports.find((r) => r.type === 'customers')?.data?.totalCustomers || 0, tone: 'info' },
-                      { label: 'With Debt', value: reports.find((r) => r.type === 'customers')?.data?.customersWithDebt || 0, tone: 'warning' },
-                      { label: 'Total Debt', value: formatCurrency(reports.find((r) => r.type === 'customers')?.data?.totalOutstandingDebt || 0), tone: 'danger' },
-                      { label: 'Overdue', value: formatCurrency(reports.find((r) => r.type === 'customers')?.data?.overdueDebt || 0), tone: 'danger' },
+                      { label: t('totalCustomers'), value: reports.find((r) => r.type === 'customers')?.data?.totalCustomers || 0, tone: 'info' },
+                      { label: t('withDebt'), value: reports.find((r) => r.type === 'customers')?.data?.customersWithDebt || 0, tone: 'warning' },
+                      { label: t('totalDebt'), value: formatCurrency(reports.find((r) => r.type === 'customers')?.data?.totalOutstandingDebt || 0), tone: 'danger' },
+                      { label: t('overdue'), value: formatCurrency(reports.find((r) => r.type === 'customers')?.data?.overdueDebt || 0), tone: 'danger' },
                     ]}
                   />
                 </CardContent>
@@ -314,23 +315,23 @@ export default function ReportsPage() {
             <TabsContent value="debts">
               <Card className="shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Debts Report</CardTitle>
+                  <CardTitle>{t('debtsReportTitle')}</CardTitle>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => exportReportAsCSV('debts')}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
+                    <Download className="h-4 w-4 me-2" />
+                    {tc('export')}
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ReportStatsGrid
                     stats={[
-                      { label: 'Total Debts', value: reports.find((r) => r.type === 'debts')?.data?.totalDebts || 0, tone: 'info' },
-                      { label: 'Total Paid', value: formatCurrency(reports.find((r) => r.type === 'debts')?.data?.totalPaid || 0), tone: 'success' },
-                      { label: 'Still Unpaid', value: formatCurrency(reports.find((r) => r.type === 'debts')?.data?.totalRemaining || 0), tone: 'danger' },
-                      { label: 'Payment Rate', value: parseFloat(reports.find((r) => r.type === 'debts')?.data?.paymentRate || 0).toFixed(1) + '%', tone: 'default' },
+                      { label: t('totalDebts'), value: reports.find((r) => r.type === 'debts')?.data?.totalDebts || 0, tone: 'info' },
+                      { label: t('totalPaid'), value: formatCurrency(reports.find((r) => r.type === 'debts')?.data?.totalPaid || 0), tone: 'success' },
+                      { label: t('stillUnpaid'), value: formatCurrency(reports.find((r) => r.type === 'debts')?.data?.totalRemaining || 0), tone: 'danger' },
+                      { label: t('paymentRate'), value: parseFloat(reports.find((r) => r.type === 'debts')?.data?.paymentRate || 0).toFixed(1) + '%', tone: 'default' },
                     ]}
                   />
                 </CardContent>
@@ -343,20 +344,20 @@ export default function ReportsPage() {
             <TabsContent value="inventory">
               <Card className="shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Inventory Report</CardTitle>
+                  <CardTitle>{t('inventoryReportTitle')}</CardTitle>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => exportReportAsCSV('inventory')}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
+                    <Download className="h-4 w-4 me-2" />
+                    {tc('export')}
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h4 className="font-semibold mb-3">Fast Moving Products</h4>
+                      <h4 className="mb-3 font-semibold">{t('fastMoving')}</h4>
                       <div className="space-y-2">
                         {reports.find((r) => r.type === 'inventory')?.data?.fastMovingProducts?.slice(0, 5)?.map((item: any, idx: number) => (
                           <div key={idx} className="flex justify-between items-center p-2 bg-success/10 rounded border border-success/20">
@@ -367,12 +368,12 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <div>
-                      <h4 className="font-semibold mb-3">Slow Moving Products</h4>
+                      <h4 className="mb-3 font-semibold">{t('slowMoving')}</h4>
                       <div className="space-y-2">
                         {reports.find((r) => r.type === 'inventory')?.data?.slowMovingProducts?.slice(0, 5)?.map((item: any, idx: number) => (
                           <div key={idx} className="flex justify-between items-center p-2 bg-destructive/10 rounded border border-destructive/20">
                             <span>{item[0]}</span>
-                            <span className="text-sm">No sales</span>
+                            <span className="text-sm">{tc('noSales')}</span>
                           </div>
                         ))}
                       </div>

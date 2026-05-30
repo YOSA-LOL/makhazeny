@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { useEnumLabels } from '@/hooks/use-enum-labels'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -25,6 +27,10 @@ interface DebtsListProps {
 }
 
 export function DebtsList({ onPayment }: DebtsListProps) {
+  const t = useTranslations('debts')
+  const tc = useTranslations('common')
+  const enumLabels = useEnumLabels()
+
   const [debts, setDebts] = useState<Debt[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('ACTIVE')
@@ -50,11 +56,11 @@ export function DebtsList({ onPayment }: DebtsListProps) {
         setDebts(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error('Failed to fetch debts')
+        toast.error(t('failedFetch'))
       }
     } catch (error) {
       console.error('Failed to fetch debts:', error)
-      toast.error('Failed to fetch debts')
+      toast.error(t('failedFetch'))
     } finally {
       setLoading(false)
     }
@@ -76,7 +82,7 @@ export function DebtsList({ onPayment }: DebtsListProps) {
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Outstanding Debts</span>
+          <span>{t('listTitle')}</span>
           <div className="flex gap-2">
             {['ACTIVE', 'PARTIAL', 'PAID'].map((status) => (
               <Button
@@ -85,7 +91,7 @@ export function DebtsList({ onPayment }: DebtsListProps) {
                 size="sm"
                 onClick={() => { setStatusFilter(status); setPage(1) }}
               >
-                {status}
+                {enumLabels.debtStatus(status)}
               </Button>
             ))}
           </div>
@@ -105,12 +111,12 @@ export function DebtsList({ onPayment }: DebtsListProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Customer</TableHead>
-                    <TableHead className="text-right">Original</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
+                    <TableHead className="text-end">Original</TableHead>
+                    <TableHead className="text-end">Remaining</TableHead>
+                    <TableHead className="text-end">Paid</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-end">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -120,9 +126,9 @@ export function DebtsList({ onPayment }: DebtsListProps) {
                     return (
                       <TableRow key={debt.id} className={overdue ? 'bg-destructive/5' : ''}>
                         <TableCell className="font-medium">{debt.customer.name}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(debt.originalAmount)}</TableCell>
-                        <TableCell className="text-right font-medium text-destructive">{formatCurrency(debt.remainingAmount)}</TableCell>
-                        <TableCell className="text-right text-success">{formatCurrency(paid)}</TableCell>
+                        <TableCell className="text-end">{formatCurrency(debt.originalAmount)}</TableCell>
+                        <TableCell className="text-end font-medium text-destructive">{formatCurrency(debt.remainingAmount)}</TableCell>
+                        <TableCell className="text-end text-success">{formatCurrency(paid)}</TableCell>
                         <TableCell>
                           {debt.dueDate ? (
                             <div className="flex items-center gap-1">
@@ -134,11 +140,11 @@ export function DebtsList({ onPayment }: DebtsListProps) {
                           ) : '-'}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getDebtStatusBadgeVariant(debt.status)}>{debt.status}</Badge>
+                          <Badge variant={getDebtStatusBadgeVariant(debt.status)}>{enumLabels.debtStatus(debt.status)}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-end">
                           <Button variant="default" size="sm" onClick={() => onPayment?.(debt)} disabled={debt.status === 'PAID'}>
-                            <CreditCard className="h-4 w-4 mr-1" /> Pay
+                            <CreditCard className="h-4 w-4 me-1" /> {tc('pay')}
                           </Button>
                         </TableCell>
                       </TableRow>

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { useEnumLabels } from '@/hooks/use-enum-labels'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,6 +38,10 @@ interface SalesListProps {
 }
 
 export function SalesList({ onView, onDelete }: SalesListProps) {
+  const t = useTranslations('sales')
+  const tc = useTranslations('common')
+  const enumLabels = useEnumLabels()
+
   const [sales, setSales] = useState<Sale[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -57,27 +63,27 @@ export function SalesList({ onView, onDelete }: SalesListProps) {
         setSales(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error(result.error || 'Failed to fetch sales')
+        toast.error(result.error || t('failedFetch'))
       }
     } catch (error) {
       console.error('Failed to fetch sales:', error)
-      toast.error('Failed to fetch sales')
+      toast.error(t('failedFetch'))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleDelete(saleId: string) {
-    if (!confirm('Are you sure you want to delete this sale?')) return
+    if (!confirm(tc('confirmDeleteSale'))) return
     try {
       const response = await fetch(`/api/sales/${saleId}`, { method: 'DELETE' })
       const result = await response.json()
       if (result.success) {
-        toast.success('Sale deleted successfully')
+        toast.success(t('deleted'))
         fetchSales()
         onDelete?.(saleId)
       } else {
-        toast.error(result.error || 'Failed to delete sale')
+        toast.error(result.error || t('failedDelete'))
       }
     } catch (error) {
       console.error('Failed to delete sale:', error)
@@ -96,15 +102,15 @@ export function SalesList({ onView, onDelete }: SalesListProps) {
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Sales Transactions</span>
-          <div className="flex-1 max-w-sm ml-auto">
+          <span>{t('listTitle')}</span>
+          <div className="ms-auto max-w-sm flex-1">
             <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute start-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search sales..."
+                placeholder={t('searchPlaceholder')}
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                className="pl-8"
+                className="ps-8"
               />
             </div>
           </div>
@@ -116,21 +122,21 @@ export function SalesList({ onView, onDelete }: SalesListProps) {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : sales.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">No sales found.</div>
+          <div className="py-8 text-center text-muted-foreground">{t('emptyState')}</div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Sale #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('saleNumber')}</TableHead>
+                    <TableHead>{tc('customer')}</TableHead>
+                    <TableHead className="text-end">{tc('total')}</TableHead>
+                    <TableHead className="text-end">{tc('paid')}</TableHead>
+                    <TableHead>{tc('status')}</TableHead>
+                    <TableHead>{tc('method')}</TableHead>
+                    <TableHead>{tc('date')}</TableHead>
+                    <TableHead className="text-end">{tc('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -138,16 +144,16 @@ export function SalesList({ onView, onDelete }: SalesListProps) {
                     <TableRow key={sale.id}>
                       <TableCell className="font-medium">{sale.saleNumber}</TableCell>
                       <TableCell>{sale.customer?.name || '-'}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(sale.totalAmount)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(sale.paidAmount)}</TableCell>
+                      <TableCell className="text-end">{formatCurrency(sale.totalAmount)}</TableCell>
+                      <TableCell className="text-end">{formatCurrency(sale.paidAmount)}</TableCell>
                       <TableCell>
-                        <Badge variant={getSaleStatusBadgeVariant(sale.status)}>{sale.status}</Badge>
+                        <Badge variant={getSaleStatusBadgeVariant(sale.status)}>{enumLabels.saleStatus(sale.status)}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{sale.paymentMethod}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{enumLabels.paymentMethod(sale.paymentMethod)}</TableCell>
                       <TableCell className="text-sm">
                         {new Date(sale.createdAt).toLocaleDateString('ar-EG')}
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
+                      <TableCell className="flex justify-end gap-2 text-end">
                         <Button variant="ghost" size="sm" onClick={() => onView?.(sale)}>
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -166,8 +172,8 @@ export function SalesList({ onView, onDelete }: SalesListProps) {
                   Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>Previous</Button>
-                  <Button variant="outline" size="sm" onClick={() => setPage(Math.min(pages, page + 1))} disabled={page === pages}>Next</Button>
+                  <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>{tc('previous')}</Button>
+                  <Button variant="outline" size="sm" onClick={() => setPage(Math.min(pages, page + 1))} disabled={page === pages}>{tc('next')}</Button>
                 </div>
               </div>
             )}

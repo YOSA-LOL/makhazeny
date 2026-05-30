@@ -1,16 +1,18 @@
+import createMiddleware from 'next-intl/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { routing } from './i18n/routing'
+
+const intlMiddleware = createMiddleware(routing)
 
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/products', request.url))
+    return NextResponse.redirect(new URL(`/${routing.defaultLocale}/products`, request.url))
   }
 
-  return NextResponse.next()
+  return intlMiddleware(request)
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
-  ],
+  matcher: ['/', '/(ar|en)/:path*', '/((?!api|_next|_vercel|.*\\..*).*)'],
 }

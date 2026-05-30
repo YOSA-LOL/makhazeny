@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { useEnumLabels } from '@/hooks/use-enum-labels'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PAYMENT_METHODS } from '@/lib/constants'
+import { PAYMENT_METHODS, NUMBER_FORMATS } from '@/lib/constants'
 import { toast } from 'sonner'
 
 interface Debt {
@@ -30,6 +32,10 @@ interface DebtPaymentFormProps {
 }
 
 export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
+  const t = useTranslations('debts')
+  const tc = useTranslations('common')
+  const enumLabels = useEnumLabels()
+
   const [loading, setLoading] = useState(false)
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('CASH')
@@ -45,12 +51,10 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
     return (
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Record Payment</CardTitle>
+          <CardTitle>{t('paymentTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Select a debt from the list to record a payment.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('paymentEmptyHint')}</p>
         </CardContent>
       </Card>
     )
@@ -62,18 +66,15 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
     ? Math.round((paidAmount / Number(debt.originalAmount)) * 100)
     : 0
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP' }).format(value)
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const paymentAmount = parseFloat(amount)
     if (!paymentAmount || paymentAmount <= 0) {
-      toast.error('Please enter a valid payment amount')
+      toast.error(t('invalidAmount'))
       return
     }
     if (paymentAmount > remainingAmount) {
-      toast.error('Payment exceeds remaining debt')
+      toast.error(t('exceedsRemaining'))
       return
     }
 
@@ -86,16 +87,16 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
       })
       const result = await response.json()
       if (result.success) {
-        toast.success('Payment recorded successfully')
+        toast.success(t('recorded'))
         setAmount('')
         setNotes('')
         onSuccess?.()
       } else {
-        toast.error(result.error || 'Failed to record payment')
+        toast.error(result.error || t('failedRecord'))
       }
     } catch (error) {
       console.error('Failed to record payment:', error)
-      toast.error('Failed to record payment')
+      toast.error(t('failedRecord'))
     } finally {
       setLoading(false)
     }
@@ -104,33 +105,35 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Record Payment</CardTitle>
+        <CardTitle>{t('paymentTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+        <div className="space-y-2 rounded-lg border bg-muted/30 p-4 text-sm">
           <div className="flex justify-between">
-            <span className="font-medium">Customer:</span>
+            <span className="font-medium">{t('customerLabel')}</span>
             <span>{debt.customer.name}</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-medium">Original Debt:</span>
-            <span>{formatCurrency(Number(debt.originalAmount))}</span>
+            <span className="font-medium">{t('originalDebt')}</span>
+            <span>{NUMBER_FORMATS.CURRENCY.format(Number(debt.originalAmount))}</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-medium">Already Paid:</span>
+            <span className="font-medium">{t('alreadyPaid')}</span>
             <span className="text-success">
-              {formatCurrency(paidAmount)} ({paymentPercent}%)
+              {NUMBER_FORMATS.CURRENCY.format(paidAmount)} ({paymentPercent}%)
             </span>
           </div>
-          <div className="flex justify-between pt-2 border-t">
-            <span className="font-bold">Remaining:</span>
-            <span className="text-destructive font-bold">{formatCurrency(remainingAmount)}</span>
+          <div className="flex justify-between border-t pt-2">
+            <span className="font-bold">{t('remainingLabel')}</span>
+            <span className="font-bold text-destructive">
+              {NUMBER_FORMATS.CURRENCY.format(remainingAmount)}
+            </span>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="amount">Payment Amount *</Label>
+            <Label htmlFor="amount">{t('paymentAmount')}</Label>
             <div className="flex gap-2">
               <Input
                 id="amount"
@@ -140,7 +143,7 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
                 max={remainingAmount}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
+                placeholder={tc('amountZero')}
                 required
               />
               <Button
@@ -148,21 +151,21 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
                 variant="outline"
                 onClick={() => setAmount(String(remainingAmount))}
               >
-                Pay Full
+                {tc('payFull')}
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Payment Method</Label>
+            <Label htmlFor="paymentMethod">{tc('paymentMethod')}</Label>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
               <SelectTrigger id="paymentMethod">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(PAYMENT_METHODS).map(([key, label]) => (
+                {Object.keys(PAYMENT_METHODS).map((key) => (
                   <SelectItem key={key} value={key}>
-                    {label}
+                    {enumLabels.paymentMethod(key)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -170,18 +173,18 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{tc('notes')}</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional payment notes"
+              placeholder={t('paymentNotes')}
               rows={3}
             />
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Processing...' : 'Record Payment'}
+            {loading ? tc('processing') : tc('recordPayment')}
           </Button>
         </form>
       </CardContent>

@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -16,6 +17,8 @@ interface Supplier {
 }
 
 export default function SuppliersPage() {
+  const t = useTranslations('suppliers')
+
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -33,15 +36,12 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Suppliers Management"
-        description="Manage supplier contacts and track purchase balances."
-      />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
 
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="list">Suppliers List</TabsTrigger>
-          <TabsTrigger value="form">{selectedSupplier ? 'Edit Supplier' : 'Add Supplier'}</TabsTrigger>
+          <TabsTrigger value="list">{t('suppliersList')}</TabsTrigger>
+          <TabsTrigger value="form">{selectedSupplier ? t('titleEdit') : t('addSupplier')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">

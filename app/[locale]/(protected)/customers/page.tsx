@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -17,6 +18,8 @@ interface Customer {
 }
 
 export default function CustomersPage() {
+  const t = useTranslations('customers')
+
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -34,15 +37,12 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Customers Management"
-        description="Manage customer profiles, credit limits, and outstanding balances."
-      />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
 
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="list">Customers List</TabsTrigger>
-          <TabsTrigger value="form">{selectedCustomer ? 'Edit Customer' : 'Add Customer'}</TabsTrigger>
+          <TabsTrigger value="list">{t('customersList')}</TabsTrigger>
+          <TabsTrigger value="form">{selectedCustomer ? t('titleEdit') : t('addCustomer')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">

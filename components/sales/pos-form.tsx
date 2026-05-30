@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -37,6 +38,9 @@ interface POSFormProps {
 }
 
 export function POSForm({ onSuccess }: POSFormProps) {
+  const t = useTranslations('sales')
+  const tc = useTranslations('common')
+
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -78,19 +82,19 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
   function addToCart() {
     if (!selectedProductId || !quantity) {
-      toast.error('Please select a product and quantity')
+      toast.error(t('selectProductAndQty'))
       return
     }
 
     const product = products.find((p) => p.id === selectedProductId)
     if (!product) {
-      toast.error('Product not found')
+      toast.error(t('productNotFound'))
       return
     }
 
     const qty = parseInt(quantity)
     if (qty <= 0 || qty > product.quantity) {
-      toast.error(`Invalid quantity. Available: ${product.quantity}`)
+      toast.error(t('invalidQuantity', { available: product.quantity }))
       return
     }
 
@@ -99,7 +103,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
     if (existingItem) {
       const newQty = existingItem.quantity + qty
       if (newQty > product.quantity) {
-        toast.error(`Not enough stock. Available: ${product.quantity}`)
+        toast.error(t('notEnoughStock', { available: product.quantity }))
         return
       }
       setCart(
@@ -128,7 +132,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
     setSelectedProductId('')
     setQuantity('1')
-    toast.success(`${product.name} added to cart`)
+    toast.success(t('addedToCart', { productName: product.name }))
   }
 
   function removeFromCart(productId: string) {
@@ -137,12 +141,12 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
   async function submitSale() {
     if (!customerId) {
-      toast.error('Please select a customer')
+      toast.error(t('selectCustomerToast'))
       return
     }
 
     if (cart.length === 0) {
-      toast.error('Cart is empty')
+      toast.error(t('cartEmptyToast'))
       return
     }
 
@@ -167,7 +171,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success('Sale created successfully')
+        toast.success(t('saleCreated'))
         setCart([])
         setCustomerId('')
         setPaymentMethod('CASH')
@@ -178,7 +182,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
       }
     } catch (error) {
       console.error('Failed to create sale:', error)
-      toast.error('Failed to create sale')
+      toast.error(t('failedCreate'))
     } finally {
       setLoading(false)
     }
@@ -192,21 +196,25 @@ export function POSForm({ onSuccess }: POSFormProps) {
       <div className="col-span-2 space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>Add Products to Sale</CardTitle>
+            <CardTitle>{t('addProductsTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="product">Select Product</Label>
+              <Label htmlFor="product">{t('selectProduct')}</Label>
               <Select value={selectedProductId} onValueChange={setSelectedProductId}>
                 <SelectTrigger id="product">
-                  <SelectValue placeholder="Choose a product" />
+                  <SelectValue placeholder={t('chooseProduct')} />
                 </SelectTrigger>
                 <SelectContent>
                   {products
                     .filter((p) => p.quantity > 0)
                     .map((product) => (
                       <SelectItem key={product.id} value={product.id}>
-                        {product.name} ({product.sku}) - Stock: {product.quantity}
+                        {t('productOption', {
+                          name: product.name,
+                          sku: product.sku,
+                          quantity: product.quantity,
+                        })}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -215,21 +223,21 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity</Label>
+                <Label htmlFor="quantity">{tc('quantity')}</Label>
                 <Input
                   id="quantity"
                   type="number"
                   min="1"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="1"
+                  placeholder={tc('quantityOne')}
                 />
               </div>
               <div className="space-y-2">
                 <Label>&nbsp;</Label>
                 <Button onClick={addToCart} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add to Cart
+                  <Plus className="h-4 w-4 me-2" />
+                  {tc('addToCart')}
                 </Button>
               </div>
             </div>
@@ -239,35 +247,35 @@ export function POSForm({ onSuccess }: POSFormProps) {
         {/* Cart Items */}
         <Card>
           <CardHeader>
-            <CardTitle>Cart Items</CardTitle>
+            <CardTitle>{t('cartItemsTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             {cart.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">Cart is empty</div>
+              <div className="py-8 text-center text-muted-foreground">{tc('cartEmpty')}</div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-center">Action</TableHead>
+                      <TableHead>{t('selectProduct')}</TableHead>
+                      <TableHead className="text-end">{tc('qty')}</TableHead>
+                      <TableHead className="text-end">{tc('price')}</TableHead>
+                      <TableHead className="text-end">{tc('total')}</TableHead>
+                      <TableHead className="text-center">{tc('action')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {cart.map((item) => (
                       <TableRow key={item.productId}>
                         <TableCell className="font-medium">{item.productName}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-end">{item.quantity}</TableCell>
+                        <TableCell className="text-end">
                           {new Intl.NumberFormat('ar-EG', {
                             style: 'currency',
                             currency: 'EGP',
                           }).format(item.price)}
                         </TableCell>
-                        <TableCell className="text-right font-medium">
+                        <TableCell className="text-end font-medium">
                           {new Intl.NumberFormat('ar-EG', {
                             style: 'currency',
                             currency: 'EGP',
@@ -295,14 +303,14 @@ export function POSForm({ onSuccess }: POSFormProps) {
       {/* Sale Summary */}
       <Card className="h-fit">
         <CardHeader>
-          <CardTitle>Sale Summary</CardTitle>
+          <CardTitle>{t('saleSummaryTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="customer">Customer *</Label>
+            <Label htmlFor="customer">{t('customerRequired')}</Label>
             <Select value={customerId} onValueChange={setCustomerId}>
               <SelectTrigger id="customer">
-                <SelectValue placeholder="Select customer" />
+                <SelectValue placeholder={t('selectCustomer')} />
               </SelectTrigger>
               <SelectContent>
                 {customers.map((customer) => (
@@ -315,26 +323,26 @@ export function POSForm({ onSuccess }: POSFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="method">Payment Method</Label>
+            <Label htmlFor="method">{tc('paymentMethod')}</Label>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
               <SelectTrigger id="method">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="CASH">Cash</SelectItem>
-                <SelectItem value="CARD">Card</SelectItem>
-                <SelectItem value="CHECK">Check</SelectItem>
-                <SelectItem value="TRANSFER">Bank Transfer</SelectItem>
-                <SelectItem value="OTHER">Other</SelectItem>
+                <SelectItem value="CASH">{tc('cash')}</SelectItem>
+                <SelectItem value="CARD">{tc('card')}</SelectItem>
+                <SelectItem value="CHECK">{tc('check')}</SelectItem>
+                <SelectItem value="TRANSFER">{tc('bankTransfer')}</SelectItem>
+                <SelectItem value="OTHER">{tc('other')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{tc('notes')}</Label>
             <Input
               id="notes"
-              placeholder="Add notes..."
+              placeholder={tc('addNotes')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -342,15 +350,15 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
           <div className="border-t pt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Items:</span>
+              <span>{t('itemsCount')}</span>
               <span className="font-medium">{cart.length}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Quantity:</span>
+              <span>{t('quantityTotal')}</span>
               <span className="font-medium">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t">
-              <span>Total:</span>
+              <span>{t('totalAmount')}</span>
               <span>
                 {new Intl.NumberFormat('ar-EG', {
                   style: 'currency',
@@ -366,7 +374,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
             className="w-full"
             size="lg"
           >
-            {loading ? 'Processing...' : 'Complete Sale'}
+            {loading ? tc('processing') : tc('completeSale')}
           </Button>
         </CardContent>
       </Card>

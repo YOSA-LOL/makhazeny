@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { StatCard, StatCardSkeleton } from '@/components/ui/stat-card'
 import { DollarSign, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
@@ -16,6 +17,9 @@ interface TreasuryDashboard {
 }
 
 export function TreasuryDashboard() {
+  const t = useTranslations('treasury')
+  const tc = useTranslations('common')
+
   const [treasury, setTreasury] = useState<TreasuryDashboard | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -44,11 +48,11 @@ export function TreasuryDashboard() {
           transactionCount: result.data.summary.transactionCount,
         })
       } else {
-        toast.error('Failed to load treasury data')
+        toast.error(t('failedLoad'))
       }
     } catch (error) {
       console.error('Failed to fetch treasury:', error)
-      toast.error('Failed to load treasury data')
+      toast.error(t('failedLoad'))
     } finally {
       setLoading(false)
     }
@@ -76,42 +80,42 @@ export function TreasuryDashboard() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
       <StatCard
-        label="Current Balance"
+        label={t('currentBalance')}
         value={formatCurrency(treasury.closingBalance)}
-        subtitle="Today's closing balance"
+        subtitle={t('currentBalanceSubtitle')}
         icon={Wallet}
         tone="default"
       />
       <StatCard
-        label="Today Income"
+        label={t('todayIncome')}
         value={formatCurrency(treasury.income)}
-        subtitle="Sales + Installments"
+        subtitle={t('todayIncomeSubtitle')}
         icon={TrendingUp}
         tone="success"
       />
       <StatCard
-        label="Today Expenses"
+        label={t('todayExpenses')}
         value={formatCurrency(treasury.expenses)}
-        subtitle="Payments + Operational"
+        subtitle={t('todayExpensesSubtitle')}
         icon={TrendingDown}
         tone="danger"
       />
       <StatCard
-        label="Today Profit"
+        label={t('todayProfit')}
         value={formatCurrency(treasury.profit)}
-        subtitle="Income - Expenses"
+        subtitle={t('todayProfitSubtitle')}
         icon={DollarSign}
         tone={treasury.profit >= 0 ? 'default' : 'danger'}
       />
       <StatCard
-        label="Transactions"
+        label={t('transactionsLabel')}
         value={treasury.transactionCount}
-        subtitle="Cash movements"
+        subtitle={t('transactionsSubtitle')}
         badge={
           <Badge variant="outline" className="text-xs">
-            Today
+            {tc('today')}
           </Badge>
         }
       />

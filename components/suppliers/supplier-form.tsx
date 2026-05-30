@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,9 @@ interface SupplierFormProps {
 }
 
 export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
+  const t = useTranslations('suppliers')
+  const tc = useTranslations('common')
+
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -60,7 +64,7 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success(supplier ? 'Supplier updated successfully' : 'Supplier created successfully')
+        toast.success(supplier ? t('updated') : t('created'))
         onSuccess?.()
         if (!supplier) {
           setFormData({
@@ -72,11 +76,11 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
           })
         }
       } else {
-        toast.error(result.error || 'Failed to save supplier')
+        toast.error(result.error || t('failedSave'))
       }
     } catch (error) {
       console.error('Failed to save supplier:', error)
-      toast.error('Failed to save supplier')
+      toast.error(t('failedSave'))
     } finally {
       setLoading(false)
     }
@@ -85,7 +89,7 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{supplier ? 'Edit Supplier' : 'Add New Supplier'}</CardTitle>
+        <CardTitle>{supplier ? t('titleEdit') : t('titleAdd')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -145,7 +149,7 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
 
           <div className="flex gap-4">
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : supplier ? 'Update Supplier' : 'Create Supplier'}
+              {loading ? tc('saving') : supplier ? t('updateSupplier') : t('createSupplier')}
             </Button>
           </div>
         </form>

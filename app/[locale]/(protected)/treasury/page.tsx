@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -8,22 +9,20 @@ import { TreasuryTransactions } from '@/components/treasury/treasury-transaction
 import { PageHeader } from '@/components/ui/page-header'
 
 export default function TreasuryPage() {
+  const t = useTranslations('treasury')
+
   const [selectedTreasuryId, setSelectedTreasuryId] = useState<string>()
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Treasury & Cash Register"
-        description="Track daily cash flow, income, expenses, and transaction history."
-      />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
 
-      {/* Dashboard Summary */}
       <TreasuryDashboard />
 
       <Tabs defaultValue="transactions" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="transactions">All Transactions</TabsTrigger>
-          <TabsTrigger value="history">Daily History</TabsTrigger>
+          <TabsTrigger value="transactions">{t('allTransactions')}</TabsTrigger>
+          <TabsTrigger value="history">{t('dailyHistory')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-4">

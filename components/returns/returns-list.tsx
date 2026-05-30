@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { useEnumLabels } from '@/hooks/use-enum-labels'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -8,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { getReturnStatusBadgeVariant } from '@/lib/status-styles'
+import { NUMBER_FORMATS } from '@/lib/constants'
 
 interface ReturnItem {
   id: string
@@ -35,6 +38,10 @@ interface ReturnsListProps {
 }
 
 export function ReturnsList({ onApprove }: ReturnsListProps) {
+  const t = useTranslations('returns')
+  const tc = useTranslations('common')
+  const enumLabels = useEnumLabels()
+
   const [returns, setReturns] = useState<Return[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('PENDING')
@@ -62,11 +69,11 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
         setReturns(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error('Failed to fetch returns')
+        toast.error(t('failedFetch'))
       }
     } catch (error) {
       console.error('Failed to fetch returns:', error)
-      toast.error('Failed to fetch returns')
+      toast.error(t('failedFetch'))
     } finally {
       setLoading(false)
     }
@@ -83,14 +90,15 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success('Return approved successfully')
+        toast.success(t('approved'))
         fetchReturns()
+        onApprove?.(returns.find((r) => r.id === returnId)!)
       } else {
-        toast.error(result.error || 'Failed to approve return')
+        toast.error(result.error || t('failedApprove'))
       }
     } catch (error) {
       console.error('Failed to approve return:', error)
-      toast.error('Failed to approve return')
+      toast.error(t('failedApprove'))
     }
   }
 
@@ -105,23 +113,15 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success('Return rejected')
+        toast.success(t('rejected'))
         fetchReturns()
       } else {
-        toast.error('Failed to reject return')
+        toast.error(result.error || t('failedReject'))
       }
     } catch (error) {
       console.error('Failed to reject return:', error)
-      toast.error('Failed to reject return')
+      toast.error(t('failedReject'))
     }
-  }
-
-  const formatCurrency = (value: number | string) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value
-    return new Intl.NumberFormat('ar-EG', {
-      style: 'currency',
-      currency: 'EGP',
-    }).format(num)
   }
 
   const getStatusIcon = (status: string) => {
@@ -144,7 +144,7 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Sales Returns</span>
+          <span>{t('listTitle')}</span>
           <div className="flex gap-2">
             {['PENDING', 'APPROVED', 'REJECTED'].map((status) => (
               <Button
@@ -156,7 +156,7 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
                   setPage(1)
                 }}
               >
-                {status}
+                {enumLabels.returnStatus(status)}
               </Button>
             ))}
           </div>
@@ -165,11 +165,11 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
           </div>
         ) : returns.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No {statusFilter.toLowerCase()} returns found.
+          <div className="py-8 text-center text-muted-foreground">
+            {t('emptyState', { status: enumLabels.returnStatus(statusFilter) })}
           </div>
         ) : (
           <>
@@ -177,14 +177,14 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Return #</TableHead>
-                    <TableHead>Sale #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead className="text-right">Items</TableHead>
-                    <TableHead className="text-right">Return Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('returnNumber')}</TableHead>
+                    <TableHead>{t('saleNumber')}</TableHead>
+                    <TableHead>{tc('customer')}</TableHead>
+                    <TableHead>{tc('reason')}</TableHead>
+                    <TableHead className="text-end">{tc('items')}</TableHead>
+                    <TableHead className="text-end">{tc('returnAmount')}</TableHead>
+                    <TableHead>{tc('status')}</TableHead>
+                    <TableHead className="text-end">{tc('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -193,19 +193,19 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
                       <TableCell className="font-medium">{returnRecord.returnNumber}</TableCell>
                       <TableCell>{returnRecord.sale.saleNumber}</TableCell>
                       <TableCell>{returnRecord.sale.customer.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{returnRecord.reason}</TableCell>
-                      <TableCell className="text-right">{returnRecord.items.length}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(returnRecord.totalReturnAmount)}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {enumLabels.returnReason(returnRecord.reason)}
+                      </TableCell>
+                      <TableCell className="text-end">{returnRecord.items.length}</TableCell>
+                      <TableCell className="text-end font-medium">
+                        {NUMBER_FORMATS.CURRENCY.format(returnRecord.totalReturnAmount)}
                       </TableCell>
                       <TableCell>
                         <Badge variant={getReturnStatusBadgeVariant(returnRecord.status)}>
-                          {getStatusIcon(returnRecord.status)}
-                          {' '}
-                          {returnRecord.status}
+                          {getStatusIcon(returnRecord.status)} {enumLabels.returnStatus(returnRecord.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
+                      <TableCell className="flex justify-end gap-2 text-end">
                         {returnRecord.status === 'PENDING' && (
                           <>
                             <Button
@@ -213,14 +213,14 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
                               size="sm"
                               onClick={() => handleApprove(returnRecord.id)}
                             >
-                              Approve
+                              {tc('approve')}
                             </Button>
                             <Button
                               variant="destructive"
                               size="sm"
                               onClick={() => handleReject(returnRecord.id)}
                             >
-                              Reject
+                              {tc('reject')}
                             </Button>
                           </>
                         )}
@@ -232,9 +232,14 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
             </div>
 
             {pages > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="mt-4 flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} returns
+                  {tc('showingRange', {
+                    from: (page - 1) * limit + 1,
+                    to: Math.min(page * limit, total),
+                    total,
+                    entity: t('paginationEntity'),
+                  })}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -243,7 +248,7 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
                   >
-                    Previous
+                    {tc('previous')}
                   </Button>
                   {Array.from({ length: Math.min(pages, 5) }, (_, i) => i + 1).map((p) => (
                     <Button
@@ -261,7 +266,7 @@ export function ReturnsList({ onApprove }: ReturnsListProps) {
                     onClick={() => setPage(Math.min(pages, page + 1))}
                     disabled={page === pages}
                   >
-                    Next
+                    {tc('next')}
                   </Button>
                 </div>
               </div>

@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,9 @@ interface CustomerListProps {
 }
 
 export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
+  const t = useTranslations('customers')
+  const tc = useTranslations('common')
+
   const [customers, setCustomers] = useState<Customer[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -51,18 +55,18 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
         setCustomers(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error(result.error || 'Failed to fetch customers')
+        toast.error(result.error || t('failedFetch'))
       }
     } catch (error) {
       console.error('Failed to fetch customers:', error)
-      toast.error('Failed to fetch customers')
+      toast.error(t('failedFetch'))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleDelete(customerId: string) {
-    if (!confirm('Are you sure you want to delete this customer?')) return
+    if (!confirm(tc('confirmDeleteCustomer'))) return
 
     try {
       const response = await fetch(`/api/customers/${customerId}`, {
@@ -71,15 +75,15 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success('Customer deleted successfully')
+        toast.success(t('deleted'))
         fetchCustomers()
         onDelete?.(customerId)
       } else {
-        toast.error(result.error || 'Failed to delete customer')
+        toast.error(result.error || t('failedDelete'))
       }
     } catch (error) {
       console.error('Failed to delete customer:', error)
-      toast.error('Failed to delete customer')
+      toast.error(t('failedDelete'))
     }
   }
 
@@ -91,9 +95,9 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Customers</span>
-          <div className="flex-1 max-w-sm ml-auto">
+          <div className="flex-1 max-w-sm ms-auto">
             <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute start-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search customers..."
                 value={search}
@@ -101,7 +105,7 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
                   setSearch(e.target.value)
                   setPage(1)
                 }}
-                className="pl-8"
+                className="ps-8"
               />
             </div>
           </div>
@@ -126,10 +130,10 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
                     <TableHead>Phone</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>City</TableHead>
-                    <TableHead className="text-right">Outstanding Debt</TableHead>
-                    <TableHead className="text-right">Credit Limit</TableHead>
+                    <TableHead className="text-end">Outstanding Debt</TableHead>
+                    <TableHead className="text-end">Credit Limit</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-end">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -139,13 +143,13 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
                       <TableCell>{customer.phone || '-'}</TableCell>
                       <TableCell>{customer.email || '-'}</TableCell>
                       <TableCell>{customer.city || '-'}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         {new Intl.NumberFormat('ar-EG', {
                           style: 'currency',
                           currency: 'EGP',
                         }).format(Number(customer.totalDebt))}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         {new Intl.NumberFormat('ar-EG', {
                           style: 'currency',
                           currency: 'EGP',
@@ -163,7 +167,7 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
                           <Badge variant="outline">Good Standing</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
+                      <TableCell className="flex justify-end gap-2 text-end">
                         <Button variant="ghost" size="sm" onClick={() => onEdit?.(customer)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
@@ -180,7 +184,12 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
             {pages > 1 && (
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} customers
+                  {tc('showingRange', {
+                    from: (page - 1) * limit + 1,
+                    to: Math.min(page * limit, total),
+                    total,
+                    entity: t('paginationEntity'),
+                  })}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -189,7 +198,7 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
                   >
-                    Previous
+                    {tc('previous')}
                   </Button>
                   {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
                     <Button
@@ -207,7 +216,7 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
                     onClick={() => setPage(Math.min(pages, page + 1))}
                     disabled={page === pages}
                   >
-                    Next
+                    {tc('next')}
                   </Button>
                 </div>
               </div>

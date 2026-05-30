@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,9 @@ interface CustomerFormProps {
 }
 
 export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
+  const t = useTranslations('customers')
+  const tc = useTranslations('common')
+
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -66,7 +70,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success(customer ? 'Customer updated successfully' : 'Customer created successfully')
+        toast.success(customer ? t('updated') : t('created'))
         onSuccess?.()
         if (!customer) {
           setFormData({
@@ -79,11 +83,11 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
           })
         }
       } else {
-        toast.error(result.error || 'Failed to save customer')
+        toast.error(result.error || t('failedSave'))
       }
     } catch (error) {
       console.error('Failed to save customer:', error)
-      toast.error('Failed to save customer')
+      toast.error(t('failedSave'))
     } finally {
       setLoading(false)
     }
@@ -92,7 +96,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{customer ? 'Edit Customer' : 'Add New Customer'}</CardTitle>
+        <CardTitle>{customer ? t('titleEdit') : t('titleAdd')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,7 +168,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
 
           <div className="flex gap-4">
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : customer ? 'Update Customer' : 'Create Customer'}
+              {loading ? tc('saving') : customer ? t('updateCustomer') : t('createCustomer')}
             </Button>
           </div>
         </form>

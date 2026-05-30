@@ -23,12 +23,12 @@ export function StatCard({
   className,
   badge,
 }: StatCardProps) {
-  const styles = statToneClasses[tone]
+  const styles = statToneClasses[tone] ?? statToneClasses.default
 
   return (
     <Card
       className={cn(
-        'border-l-4 shadow-sm transition-shadow hover:shadow-md',
+        'border-s-4 shadow-sm transition-shadow hover:shadow-md',
         styles.border,
         className
       )}
@@ -56,7 +56,7 @@ export function StatCard({
 
 export function StatCardSkeleton({ className }: { className?: string }) {
   return (
-    <Card className={cn('border-l-4 border-l-muted shadow-sm', className)}>
+    <Card className={cn('border-s-4 border-s-muted shadow-sm', className)}>
       <CardHeader className="pb-2">
         <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
       </CardHeader>

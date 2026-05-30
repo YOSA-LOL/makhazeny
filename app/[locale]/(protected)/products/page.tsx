@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProductForm } from '@/components/products/product-form'
 import { ProductList } from '@/components/products/product-list'
@@ -18,12 +19,12 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const t = useTranslations('products')
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product)
-    // Scroll to form
     const formElement = document.getElementById('product-form')
     formElement?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -35,15 +36,14 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Products Management"
-        description="Manage inventory, pricing, and stock levels for all warehouse products."
-      />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
 
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="list">Products List</TabsTrigger>
-          <TabsTrigger value="form">{selectedProduct ? 'Edit Product' : 'Add Product'}</TabsTrigger>
+          <TabsTrigger value="list">{t('productsList')}</TabsTrigger>
+          <TabsTrigger value="form">
+            {selectedProduct ? t('editProduct') : t('addProduct')}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">

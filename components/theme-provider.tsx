@@ -7,5 +7,16 @@ import {
 } from 'next-themes'
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+  // next-themes injects an inline <script> to prevent theme flash on load.
+  // React 19 warns when that script re-renders on the client; use a non-JS type there.
+  const scriptProps =
+    typeof window === 'undefined'
+      ? undefined
+      : ({ type: 'application/json' } as const)
+
+  return (
+    <NextThemesProvider {...props} scriptProps={scriptProps}>
+      {children}
+    </NextThemesProvider>
+  )
 }
