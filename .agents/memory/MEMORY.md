@@ -1,0 +1,3 @@
+- [Makhazeny auth pattern](makhazeny-auth.md) — DEFAULT_USER fallback in requireAuth middleware; SelectItem value="" causes runtime crash.
+- [Arabic i18n setup](arabic-i18n.md) — LanguageProvider in src/lib/i18n.tsx; useLanguage().t() hook; dir/lang set on document.documentElement; Cairo font for RTL.
+- [Timezone UTC+3 pattern](timezone-utc-pattern.md) — Server runs UTC; user is UTC+3. All backend date checks need a +1 day buffer to avoid rejecting valid "today" operations.

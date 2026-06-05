@@ -1,0 +1,83 @@
+{
+  "name": "makhazeny",
+  "version": "1.0.0",
+  "license": "MIT",
+  "packageManager": "pnpm@11.5.2",
+  "main": "electron/main.js",
+  "scripts": {
+    "preinstall": "node scripts/preinstall.cjs",
+    "build": "pnpm run typecheck && pnpm --filter @workspace/makhazeny --filter @workspace/api-server run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "dev": "pnpm run dev:all",
+    "dev:api": "pnpm --filter @workspace/api-server run dev",
+    "dev:web": "cross-env PORT=25085 BASE_PATH=/ API_PORT=8080 pnpm --filter @workspace/makhazeny run dev",
+    "dev:all": "concurrently -n api,web -c blue,green \"pnpm run dev:api\" \"pnpm run dev:web\"",
+    "electron:dev": "pnpm --filter @workspace/api-server run build && electron .",
+    "electron:build": "node scripts/electron-build.cjs"
+  },
+  "private": true,
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^34.5.8",
+    "electron-builder": "^25.1.8",
+    "prettier": "^3.8.3",
+    "typescript": "~5.9.3"
+  },
+  "build": {
+    "appId": "com.makhazeny.app",
+    "productName": "Makhazeny",
+    "copyright": "Copyright © 2026 Makhazeny",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".electron-pack/server",
+        "to": "server"
+      },
+      {
+        "from": ".electron-pack/frontend",
+        "to": "frontend"
+      }
+    ],
+    "extraFiles": [
+      {
+        "from": ".env",
+        "to": ".env"
+      },
+      {
+        "from": ".env.example",
+        "to": ".env.example"
+      }
+    ],
+    "afterPack": "./scripts/electron-after-pack.cjs",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Makhazeny"
+    },
+    "portable": {
+      "artifactName": "Makhazeny-Portable.exe"
+    }
+  }
+}
