@@ -15,7 +15,8 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Link } from 'wouter'
 import { apiFetch } from '@/lib/api'
-import { useLanguage } from '@/lib/i18n'
+import { useLanguage, type Lang } from '@/lib/i18n'
+import { getLocale } from '@/lib/format'
 
 interface DashboardData {
   products: { total: number; lowStock: number; outOfStock: number }
@@ -34,21 +35,19 @@ interface DashboardData {
   revenueTrend: Array<{ day: string; revenue: number; sales: number }>
 }
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(value)
-
 const statusColor: Record<string, string> = {
   PAID: 'bg-success/10 text-success border-success/20',
   PARTIAL: 'bg-warning/10 text-warning border-warning/20',
   UNPAID: 'bg-destructive/10 text-destructive border-destructive/20',
 }
 
-function generateRevenueTrend(sales: Array<{ createdAt: string; totalAmount: number }>) {
+function generateRevenueTrend(sales: Array<{ createdAt: string; totalAmount: number }>, lang: Lang) {
+  const locale = getLocale(lang)
   const days: Record<string, { revenue: number; sales: number }> = {}
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
-    const key = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
+    const key = d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' })
     days[key] = { revenue: 0, sales: 0 }
   }
   for (const sale of sales) {
@@ -56,7 +55,7 @@ function generateRevenueTrend(sales: Array<{ createdAt: string; totalAmount: num
     const now = new Date()
     const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
     if (diff <= 6) {
-      const key = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
+      const key = d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' })
       if (days[key]) {
         days[key].revenue += sale.totalAmount
         days[key].sales += 1
@@ -67,6 +66,7 @@ function generateRevenueTrend(sales: Array<{ createdAt: string; totalAmount: num
 }
 
 function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+  const { formatCurrency } = useLanguage()
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border bg-background p-2.5 shadow-md text-xs">
@@ -90,7 +90,7 @@ function SalesTooltip({ active, payload, label }: { active?: boolean; payload?: 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const { t } = useLanguage()
+  const { t, lang, formatCurrency } = useLanguage()
 
   useEffect(() => {
     async function loadDashboard() {
@@ -142,7 +142,7 @@ export default function DashboardPage() {
           lowStockProducts: products
             .filter((p: { quantity: number; lowStockLevel: number }) => p.quantity <= p.lowStockLevel)
             .slice(0, 5),
-          revenueTrend: generateRevenueTrend(sales),
+          revenueTrend: generateRevenueTrend(sales, lang),
         })
       } catch (err) {
         console.error('Dashboard load error:', err)
@@ -151,7 +151,7 @@ export default function DashboardPage() {
       }
     }
     loadDashboard()
-  }, [])
+  }, [lang])
 
   return (
     <div className="space-y-6">
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold tabular-nums">{formatCurrency(sale.totalAmount)}</span>
                       <span className={`text-[10px] font-semibold border rounded-full px-2 py-0.5 ${statusColor[sale.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
-                        {sale.status}
+                        {t(sale.status)}
                       </span>
                     </div>
                   </div>

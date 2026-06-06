@@ -7,6 +7,7 @@ import { DollarSign, TrendingDown, TrendingUp, Wallet, Lock, LockOpen, RefreshCw
 import { toast } from 'sonner'
 import { useLanguage } from '@/lib/i18n'
 import { useSelectedDate } from '@/lib/date-context'
+import { TreasuryCashActions } from '@/components/treasury/treasury-cash-actions'
 
 interface TreasuryData {
   openingBalance: number
@@ -26,12 +27,18 @@ function isPast2359() {
   return n.getHours() === 23 && n.getMinutes() >= 59
 }
 
-export function TreasuryDashboard() {
+interface TreasuryDashboardProps {
+  refreshKey?: number
+  onTreasuryIdChange?: (treasuryId: string | undefined) => void
+  onUpdated?: () => void
+}
+
+export function TreasuryDashboard({ refreshKey = 0, onTreasuryIdChange, onUpdated }: TreasuryDashboardProps) {
   const [treasury, setTreasury] = useState<TreasuryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
   const [now, setNow] = useState(() => new Date())
-  const { t } = useLanguage()
+  const { t, te, formatCurrency, formatDate, formatTime } = useLanguage()
   const { selectedDate, isToday, selectedDateStr } = useSelectedDate()
   const autoClosedRef = useRef(false)
   const midnightLockedRef = useRef(false)
@@ -46,7 +53,7 @@ export function TreasuryDashboard() {
     autoClosedRef.current = false
     midnightLockedRef.current = false
     fetchTreasuryForDate()
-  }, [selectedDateStr])
+  }, [selectedDateStr, refreshKey])
 
   // Auto-close at 11:59 PM if treasury is still open
   useEffect(() => {
@@ -106,11 +113,13 @@ export function TreasuryDashboard() {
           closedAt: result.data.summary.closedAt ?? null,
           treasuryId: result.data.treasury.id,
         })
+        onTreasuryIdChange?.(result.data.treasury.id)
       } else {
         setTreasury(null)
+        onTreasuryIdChange?.(undefined)
       }
     } catch {
-      toast.error('Failed to load treasury data')
+      toast.error(t('Failed to load treasury data'))
     } finally {
       setLoading(false)
     }
@@ -149,10 +158,10 @@ export function TreasuryDashboard() {
         toast.success(t('Day closed successfully. Balance will carry over to tomorrow.'))
         await fetchTreasuryForDate()
       } else {
-        toast.error(result.error || 'Failed to close day')
+        toast.error(result.error ? te(result.error) : t('Failed to close day'))
       }
     } catch {
-      toast.error('Failed to close day')
+      toast.error(t('Failed to close day'))
     } finally {
       setClosing(false)
     }
@@ -172,21 +181,18 @@ export function TreasuryDashboard() {
         toast.success(t('Day reopened successfully.'))
         await fetchTreasuryForDate()
       } else {
-        toast.error(result.error || 'Failed to reopen day')
+        toast.error(result.error ? te(result.error) : t('Failed to reopen day'))
       }
     } catch {
-      toast.error('Failed to reopen day')
+      toast.error(t('Failed to reopen day'))
     } finally {
       setClosing(false)
     }
   }
 
-  const fmt = (value: number) =>
-    new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(value)
-
   const dateLabel = isToday
     ? t('Today')
-    : selectedDate.toLocaleDateString('en-EG', { day: 'numeric', month: 'long', year: 'numeric' })
+    : formatDate(selectedDate, { day: 'numeric', month: 'long', year: 'numeric' })
 
   // Reopen is allowed only if: manual close + today + before 11:59 PM
   const canReopen =
@@ -234,7 +240,7 @@ export function TreasuryDashboard() {
           )}
           {treasury.isClosed && treasury.closedAt && (
             <span className="text-xs text-muted-foreground">
-              {t('Closed at')} {new Date(treasury.closedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              {t('Closed at')} {formatTime(treasury.closedAt)}
             </span>
           )}
           <span className="text-xs text-muted-foreground font-medium">— {dateLabel}</span>
@@ -269,26 +275,37 @@ export function TreasuryDashboard() {
         </div>
       </div>
 
+      {!treasury.isClosed && (
+        <TreasuryCashActions
+          treasuryId={treasury.treasuryId}
+          disabled={!isToday}
+          onSuccess={() => {
+            fetchTreasuryForDate()
+            onUpdated?.()
+          }}
+        />
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <StatCard
           label={t('Current Balance')}
-          value={fmt(treasury.closingBalance)}
+          value={formatCurrency(treasury.closingBalance)}
           subtitle={treasury.isClosed ? t('Final closing balance') : t('Closing balance')}
           icon={Wallet}
           tone="default"
         />
         <StatCard
           label={t('Opening Balance')}
-          value={fmt(treasury.openingBalance)}
+          value={formatCurrency(treasury.openingBalance)}
           subtitle={t('Carried over from previous day')}
           icon={TrendingUp}
           tone="default"
         />
-        <StatCard label={t('Income')} value={fmt(treasury.income)}
+        <StatCard label={t('Income')} value={formatCurrency(treasury.income)}
           subtitle={t('Sales + Installments')} icon={TrendingUp} tone="success" />
-        <StatCard label={t('Expenses')} value={fmt(treasury.expenses)}
+        <StatCard label={t('Expenses')} value={formatCurrency(treasury.expenses)}
           subtitle={t('Payments + Operational')} icon={TrendingDown} tone="danger" />
-        <StatCard label={t('Profit')} value={fmt(treasury.profit)}
+        <StatCard label={t('Profit')} value={formatCurrency(treasury.profit)}
           subtitle={t('Income - Expenses')} icon={DollarSign}
           tone={treasury.profit >= 0 ? 'default' : 'danger'} />
       </div>
@@ -298,7 +315,7 @@ export function TreasuryDashboard() {
           <ShieldAlert className="h-4 w-4 shrink-0" />
           <span>
             {t('This day was automatically closed by the system and cannot be reopened.')}{' '}
-            <strong>{fmt(treasury.closingBalance)}</strong>{' '}
+            <strong>{formatCurrency(treasury.closingBalance)}</strong>{' '}
             {t('will automatically carry over as the opening balance for the next day.')}
           </span>
         </div>
@@ -310,7 +327,7 @@ export function TreasuryDashboard() {
           <span>
             {t('This day is closed.')}{' '}
             {canReopen && <span>{t('You can reopen it until 11:59 PM.')}{' '}</span>}
-            <strong>{fmt(treasury.closingBalance)}</strong>{' '}
+            <strong>{formatCurrency(treasury.closingBalance)}</strong>{' '}
             {t('will automatically carry over as the opening balance for the next day.')}
           </span>
         </div>

@@ -11,8 +11,10 @@ import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import type { StatTone } from '@/lib/status-styles'
 import { useLanguage } from '@/lib/i18n'
+import { PAYMENT_METHODS } from '@/lib/constants'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { printHtml } from '@/lib/print'
 
 function ReportStatsGrid({ stats }: { stats: { label: string; value: React.ReactNode; tone?: StatTone }[] }) {
   return (
@@ -45,15 +47,7 @@ interface Report {
   endDate: string
 }
 
-const formatCurrency = (value: unknown) => {
-  const num = typeof value === 'object' ? parseFloat(String(value)) : Number(value)
-  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(num)
-}
-
-const PAYMENT_LABELS: Record<string, string> = {
-  CASH: 'Cash', CARD: 'Card', CHECK: 'Check', TRANSFER: 'Bank Transfer',
-  INSTALLMENT: 'Installment', CREDIT: 'Credit', OTHER: 'Other',
-}
+const PAYMENT_LABELS: Record<string, string> = { ...PAYMENT_METHODS }
 
 const STATUS_STYLE: Record<string, string> = {
   PAID: 'text-green-600 bg-green-50 border-green-200',
@@ -68,7 +62,7 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [reports, setReports] = useState<Report[]>([])
-  const { t } = useLanguage()
+  const { t, te, formatCurrency, formatDate } = useLanguage()
 
   function setToday() {
     const today = new Date().toISOString().split('T')[0]
@@ -92,8 +86,8 @@ export default function ReportsPage() {
   }
 
   const handleGenerateReport = async (reportType: string) => {
-    if (!startDate || !endDate) { toast.error('Please select start and end dates'); return }
-    if (new Date(startDate) > new Date(endDate)) { toast.error('Start date must be before end date'); return }
+    if (!startDate || !endDate) { toast.error(t('Please select start and end dates')); return }
+    if (new Date(startDate) > new Date(endDate)) { toast.error(t('Start date must be before end date')); return }
     setLoading(true)
     try {
       const res = await apiFetch(`/api/reports?type=${reportType}&startDate=${startDate}&endDate=${endDate}`)
@@ -101,24 +95,24 @@ export default function ReportsPage() {
       if (result.success) {
         setReports([
           ...reports.filter((r) => r.type !== reportType),
-          { type: reportType, data: result.data, generatedAt: new Date().toLocaleString('en-GB'), startDate, endDate },
+          { type: reportType, data: result.data, generatedAt: formatDate(new Date(), { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }), startDate, endDate },
         ])
-        toast.success(`${reportType} report generated`)
+        toast.success(`${t(reportType)} ${t('report generated')}`)
       } else {
-        toast.error(result.error || 'Failed to generate report')
+        toast.error(result.error ? te(result.error) : t('Failed to generate report'))
       }
-    } catch { toast.error('Failed to generate report') } finally { setLoading(false) }
+    } catch { toast.error(t('Failed to generate report')) } finally { setLoading(false) }
   }
 
   const exportReportAsCSV = (reportType: string) => {
     const report = reports.find((r) => r.type === reportType)
     if (!report) return
-    let csv = `${reportType.toUpperCase()} REPORT\nGenerated: ${report.generatedAt}\nPeriod: ${report.startDate} to ${report.endDate}\n\n`
+    let csv = `${t(reportType).toUpperCase()} ${t('Report').toUpperCase()}\n${t('Generated')}: ${report.generatedAt}\n${t('Period')}: ${report.startDate} ${t('to')} ${report.endDate}\n\n`
     if (reportType === 'sales' && Array.isArray(report.data.sales)) {
       const sales = report.data.sales as SaleRow[]
-      csv += 'Sale #,Date,Customer,Items,Total,Paid,Remaining,Status,Method\n'
+      csv += `${t('Sale #')},${t('Date')},${t('Customer')},${t('Items')},${t('Total')},${t('Paid')},${t('Remaining')},${t('Status')},${t('Method')}\n`
       sales.forEach((s) => {
-        csv += `${s.saleNumber},${new Date(s.createdAt).toLocaleDateString('en-GB')},${s.customerName},${s.itemCount},${s.totalAmount},${s.paidAmount},${s.remainingAmount},${s.status},${s.paymentMethod}\n`
+        csv += `${s.saleNumber},${formatDate(s.createdAt)},${s.customerName},${s.itemCount},${s.totalAmount},${s.paidAmount},${s.remainingAmount},${t(s.status)},${t(PAYMENT_LABELS[s.paymentMethod] ?? s.paymentMethod)}\n`
       })
     } else {
       Object.entries(report.data).forEach(([key, value]) => {
@@ -146,24 +140,24 @@ export default function ReportsPage() {
     const sales = (report.data.sales as SaleRow[]) ?? []
     const dateRange =
       report.startDate === report.endDate
-        ? new Date(report.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-        : `${new Date(report.startDate).toLocaleDateString('en-GB')} – ${new Date(report.endDate).toLocaleDateString('en-GB')}`
+        ? formatDate(report.startDate, { day: 'numeric', month: 'long', year: 'numeric' })
+        : `${formatDate(report.startDate)} – ${formatDate(report.endDate)}`
 
     const rowsHtml = sales
       .map(
         (s) => `
       <tr>
         <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;">${s.saleNumber}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px;">${new Date(s.createdAt).toLocaleDateString('en-GB')}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px;">${formatDate(s.createdAt)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px;font-weight:600;">${s.customerName}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:12px;">${s.itemCount}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:12px;font-weight:700;">EGP ${Math.round(s.totalAmount).toLocaleString('en')}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:12px;color:#16a34a;font-weight:600;">EGP ${Math.round(s.paidAmount).toLocaleString('en')}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:12px;${s.remainingAmount > 0 ? 'color:#dc2626;font-weight:600;' : 'color:#888;'}">EGP ${Math.round(s.remainingAmount).toLocaleString('en')}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:12px;font-weight:700;">${formatCurrency(s.totalAmount)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:12px;color:#16a34a;font-weight:600;">${formatCurrency(s.paidAmount)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:12px;${s.remainingAmount > 0 ? 'color:#dc2626;font-weight:600;' : 'color:#888;'}">${formatCurrency(s.remainingAmount)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:11px;">
-          <span style="border-radius:999px;padding:2px 8px;font-weight:700;${s.status === 'PAID' ? 'background:#dcfce7;color:#16a34a;border:1px solid #86efac;' : s.status === 'PARTIAL' ? 'background:#fef3c7;color:#d97706;border:1px solid #fcd34d;' : 'background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;'}">${s.status}</span>
+          <span style="border-radius:999px;padding:2px 8px;font-weight:700;${s.status === 'PAID' ? 'background:#dcfce7;color:#16a34a;border:1px solid #86efac;' : s.status === 'PARTIAL' ? 'background:#fef3c7;color:#d97706;border:1px solid #fcd34d;' : 'background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;'}">${t(s.status)}</span>
         </td>
-        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px;">${PAYMENT_LABELS[s.paymentMethod] ?? s.paymentMethod}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:12px;">${t(PAYMENT_LABELS[s.paymentMethod] ?? s.paymentMethod)}</td>
       </tr>
     `,
       )
@@ -174,10 +168,10 @@ export default function ReportsPage() {
     const totalRemaining = sales.reduce((s, r) => s + r.remainingAmount, 0)
 
     const html = `<!DOCTYPE html>
-<html>
+<html dir="${document.documentElement.dir}" lang="${document.documentElement.lang}">
 <head>
   <meta charset="utf-8">
-  <title>Sales Report – ${dateRange}</title>
+  <title>${t('Sales Report')} – ${dateRange}</title>
   <style>
     @page { margin: 15mm; }
     * { box-sizing: border-box; }
@@ -195,72 +189,70 @@ export default function ReportsPage() {
 <body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid #111;margin-bottom:20px;">
     <div>
-      <h1 style="font-size:22px;font-weight:800;margin:0;letter-spacing:-0.5px;">Makhazeny Warehouse</h1>
-      <p style="margin:4px 0 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Sales Report</p>
+      <h1 style="font-size:22px;font-weight:800;margin:0;letter-spacing:-0.5px;">${t('Makhazeny Warehouse')}</h1>
+      <p style="margin:4px 0 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">${t('Sales Report')}</p>
     </div>
     <div style="text-align:right;font-size:12px;color:#6b7280;">
       <div style="font-weight:700;color:#111;font-size:14px;">${dateRange}</div>
-      <div style="margin-top:2px;">Generated: ${report.generatedAt}</div>
+      <div style="margin-top:2px;">${t('Generated')}: ${report.generatedAt}</div>
     </div>
   </div>
   <div class="summary">
-    <div class="stat"><div class="stat-label">Total Sales</div><div class="stat-value" style="color:#3b82f6;">${sales.length}</div></div>
-    <div class="stat"><div class="stat-label">Total Revenue</div><div class="stat-value">EGP ${Math.round(totalRevenue).toLocaleString('en')}</div></div>
-    <div class="stat"><div class="stat-label">Collected</div><div class="stat-value" style="color:#16a34a;">EGP ${Math.round(totalPaid).toLocaleString('en')}</div></div>
-    <div class="stat"><div class="stat-label">Outstanding</div><div class="stat-value" style="color:${totalRemaining > 0 ? '#dc2626' : '#16a34a'};">EGP ${Math.round(totalRemaining).toLocaleString('en')}</div></div>
+    <div class="stat"><div class="stat-label">${t('Total Sales')}</div><div class="stat-value" style="color:#3b82f6;">${sales.length}</div></div>
+    <div class="stat"><div class="stat-label">${t('Total Revenue')}</div><div class="stat-value">${formatCurrency(totalRevenue)}</div></div>
+    <div class="stat"><div class="stat-label">${t('Collected')}</div><div class="stat-value" style="color:#16a34a;">${formatCurrency(totalPaid)}</div></div>
+    <div class="stat"><div class="stat-label">${t('Outstanding')}</div><div class="stat-value" style="color:${totalRemaining > 0 ? '#dc2626' : '#16a34a'};">${formatCurrency(totalRemaining)}</div></div>
   </div>
   <table>
     <thead>
       <tr>
-        <th>Sale #</th><th>Date</th><th>Customer</th><th class="center">Items</th>
-        <th class="right">Total</th><th class="right">Paid</th><th class="right">Remaining</th>
-        <th class="center">Status</th><th>Method</th>
+        <th>${t('Sale #')}</th><th>${t('Date')}</th><th>${t('Customer')}</th><th class="center">${t('Items')}</th>
+        <th class="right">${t('Total')}</th><th class="right">${t('Paid')}</th><th class="right">${t('Remaining')}</th>
+        <th class="center">${t('Status')}</th><th>${t('Method')}</th>
       </tr>
     </thead>
     <tbody>
       ${rowsHtml}
       <tr class="footer-row">
-        <td colspan="4" style="padding:8px;font-size:12px;">TOTALS — ${sales.length} sale${sales.length !== 1 ? 's' : ''}</td>
-        <td style="padding:8px;text-align:right;">EGP ${Math.round(totalRevenue).toLocaleString('en')}</td>
-        <td style="padding:8px;text-align:right;color:#16a34a;">EGP ${Math.round(totalPaid).toLocaleString('en')}</td>
-        <td style="padding:8px;text-align:right;${totalRemaining > 0 ? 'color:#dc2626;' : ''}">EGP ${Math.round(totalRemaining).toLocaleString('en')}</td>
+        <td colspan="4" style="padding:8px;font-size:12px;">${t('TOTALS')} — ${sales.length} ${t('sale')}${sales.length !== 1 ? 's' : ''}</td>
+        <td style="padding:8px;text-align:right;">${formatCurrency(totalRevenue)}</td>
+        <td style="padding:8px;text-align:right;color:#16a34a;">${formatCurrency(totalPaid)}</td>
+        <td style="padding:8px;text-align:right;${totalRemaining > 0 ? 'color:#dc2626;' : ''}">${formatCurrency(totalRemaining)}</td>
         <td colspan="2"></td>
       </tr>
     </tbody>
   </table>
   <div style="margin-top:24px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:12px;">
-    Makhazeny Warehouse Management System — Confidential Report
+    ${t('Makhazeny Warehouse Management System')} — ${t('Confidential Report')}
   </div>
 </body>
 </html>`
 
-    const w = window.open('', '_blank', 'width=960,height=700')
-    if (!w) { toast.error('Please allow pop-ups to print the report'); return }
-    w.document.write(html)
-    w.document.close()
-    w.focus()
-    setTimeout(() => { w.print(); w.close() }, 400)
+    if (!printHtml(html, `${t('Sales Report')} – ${dateRange}`)) {
+      toast.error(t('Failed to open print dialog'))
+    }
   }
 
+  const reportFieldLabel = (key: string) =>
+    t(key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()).trim())
+
   function printGenericReport(report: Report) {
-    const w = window.open('', '_blank', 'width=700,height=600')
-    if (!w) { toast.error('Please allow pop-ups to print the report'); return }
     const rows = Object.entries(report.data)
       .filter(([, v]) => typeof v !== 'object' || v === null)
       .map(
         ([k, v]) =>
-          `<tr><td style="padding:8px;border-bottom:1px solid #eee;color:#6b7280;">${k}</td><td style="padding:8px;border-bottom:1px solid #eee;font-weight:600;text-align:right;">${v}</td></tr>`,
+          `<tr><td style="padding:8px;border-bottom:1px solid #eee;color:#6b7280;">${reportFieldLabel(k)}</td><td style="padding:8px;border-bottom:1px solid #eee;font-weight:600;text-align:right;">${v}</td></tr>`,
       )
       .join('')
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${report.type} Report</title>
+    const reportTitle = `${t(report.type)} ${t('Report')}`
+    const html = `<!DOCTYPE html><html dir="${document.documentElement.dir}" lang="${document.documentElement.lang}"><head><meta charset="utf-8"><title>${reportTitle}</title>
       <style>body{font-family:Arial,sans-serif;padding:24px;max-width:600px;margin:0 auto;}table{width:100%;border-collapse:collapse;}@page{margin:15mm;}</style></head>
-      <body><h1 style="font-size:18px;margin-bottom:4px;">Makhazeny Warehouse — ${report.type.charAt(0).toUpperCase() + report.type.slice(1)} Report</h1>
-      <p style="color:#6b7280;font-size:12px;margin-bottom:16px;">Period: ${report.startDate} to ${report.endDate} | Generated: ${report.generatedAt}</p>
+      <body><h1 style="font-size:18px;margin-bottom:4px;">${t('Makhazeny Warehouse')} — ${reportTitle}</h1>
+      <p style="color:#6b7280;font-size:12px;margin-bottom:16px;">${t('Period')}: ${report.startDate} ${t('to')} ${report.endDate} | ${t('Generated')}: ${report.generatedAt}</p>
       <table><tbody>${rows}</tbody></table></body></html>`
-    w.document.write(html)
-    w.document.close()
-    w.focus()
-    setTimeout(() => { w.print(); w.close() }, 400)
+    if (!printHtml(html, reportTitle)) {
+      toast.error(t('Failed to open print dialog'))
+    }
   }
 
   const salesReport = reports.find((r) => r.type === 'sales')
@@ -275,9 +267,9 @@ export default function ReportsPage() {
         <div className="backdrop-blur-[3px] bg-background/30 absolute inset-0 rounded-xl" />
         <div className="relative z-10 flex flex-col items-center gap-3 select-none">
           <div className="rounded-full bg-primary/10 border border-primary/20 px-6 py-2.5">
-            <span className="text-2xl font-bold tracking-widest text-primary">Coming Soon</span>
+            <span className="text-2xl font-bold tracking-widest text-primary">{t('Coming Soon')}</span>
           </div>
-          <p className="text-sm text-muted-foreground">Reports & Analytics will be available soon.</p>
+          <p className="text-sm text-muted-foreground">{t('Reports & Analytics will be available soon.')}</p>
         </div>
       </div>
       <PageHeader
@@ -293,13 +285,13 @@ export default function ReportsPage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={setToday} className="gap-1.5 h-8 text-xs">
               <Calendar className="h-3.5 w-3.5" />
-              Today
+              {t('Today')}
             </Button>
             <Button variant="outline" size="sm" onClick={setThisWeek} className="h-8 text-xs">
-              This Week
+              {t('This Week')}
             </Button>
             <Button variant="outline" size="sm" onClick={setThisMonth} className="h-8 text-xs">
-              This Month
+              {t('This Month')}
             </Button>
           </div>
 
@@ -344,13 +336,13 @@ export default function ReportsPage() {
                       {salesReport.startDate === salesReport.endDate
                         ? salesReport.startDate
                         : `${salesReport.startDate} → ${salesReport.endDate}`}{' '}
-                      · Generated {salesReport.generatedAt}
+                      · {t('Generated')} {salesReport.generatedAt}
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <Button size="sm" variant="outline" onClick={() => printSalesReport(salesReport)} className="gap-1.5">
                       <Printer className="h-3.5 w-3.5" />
-                      Print
+                      {t('Print')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => exportReportAsCSV('sales')} className="gap-1.5">
                       <Download className="h-3.5 w-3.5" />
@@ -370,19 +362,19 @@ export default function ReportsPage() {
 
                   {Array.isArray(salesReport.data.sales) && (salesReport.data.sales as SaleRow[]).length > 0 ? (
                     <div>
-                      <h4 className="font-semibold text-sm mb-3">Individual Sales</h4>
+                      <h4 className="font-semibold text-sm mb-3">{t('Individual Sales')}</h4>
                       <div className="border rounded-lg overflow-hidden">
                         <Table>
                           <TableHeader>
                             <TableRow className="hover:bg-transparent bg-muted/40">
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold ps-4">Sale #</TableHead>
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold">Date</TableHead>
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold">Customer</TableHead>
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-right">Total</TableHead>
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-right">Paid</TableHead>
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-right">Remaining</TableHead>
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-center">Status</TableHead>
-                              <TableHead className="text-xs uppercase tracking-wide font-semibold pe-4">Method</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold ps-4">{t('Sale #')}</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold">{t('Date')}</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold">{t('Customer')}</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-right">{t('Total')}</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-right">{t('Paid')}</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-right">{t('Remaining')}</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold text-center">{t('Status')}</TableHead>
+                              <TableHead className="text-xs uppercase tracking-wide font-semibold pe-4">{t('Method')}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -390,10 +382,7 @@ export default function ReportsPage() {
                               <TableRow key={sale.id}>
                                 <TableCell className="ps-4 font-mono text-xs font-semibold">{sale.saleNumber}</TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
-                                  {new Date(sale.createdAt).toLocaleDateString('en-GB', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                  })}
+                                  {formatDate(sale.createdAt, { day: 'numeric', month: 'short' })}
                                 </TableCell>
                                 <TableCell className="font-medium text-sm">{sale.customerName}</TableCell>
                                 <TableCell className="text-right tabular-nums font-bold text-sm">
@@ -414,11 +403,11 @@ export default function ReportsPage() {
                                       STATUS_STYLE[sale.status] ?? 'bg-muted border-border text-muted-foreground',
                                     )}
                                   >
-                                    {sale.status}
+                                    {t(sale.status)}
                                   </span>
                                 </TableCell>
                                 <TableCell className="pe-4 text-xs text-muted-foreground">
-                                  {PAYMENT_LABELS[sale.paymentMethod] ?? sale.paymentMethod}
+                                  {t(PAYMENT_LABELS[sale.paymentMethod] ?? sale.paymentMethod)}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -427,7 +416,7 @@ export default function ReportsPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-6">No sales found for this period.</p>
+                    <p className="text-sm text-muted-foreground text-center py-6">{t('No sales found for this period.')}</p>
                   )}
 
                   {Array.isArray(salesReport.data.topProducts) &&
@@ -440,7 +429,7 @@ export default function ReportsPage() {
                               <div key={idx} className="flex justify-between items-center p-2.5 bg-muted/50 rounded-lg border">
                                 <span className="text-sm font-medium">{product.name}</span>
                                 <div className="text-end">
-                                  <p className="text-xs text-muted-foreground">Qty: {product.quantity}</p>
+                                  <p className="text-xs text-muted-foreground">{t('Qty:')} {product.quantity}</p>
                                   <p className="text-sm font-semibold">{formatCurrency(product.revenue)}</p>
                                 </div>
                               </div>
@@ -461,7 +450,7 @@ export default function ReportsPage() {
                   <CardTitle>{t('Products Report')}</CardTitle>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => printGenericReport(productsReport)} className="gap-1.5">
-                      <Printer className="h-3.5 w-3.5" />Print
+                      <Printer className="h-3.5 w-3.5" />{t('Print')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => exportReportAsCSV('products')} className="gap-1.5">
                       <Download className="h-3.5 w-3.5" />CSV
@@ -489,7 +478,7 @@ export default function ReportsPage() {
                   <CardTitle>{t('Customers Report')}</CardTitle>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => printGenericReport(customersReport)} className="gap-1.5">
-                      <Printer className="h-3.5 w-3.5" />Print
+                      <Printer className="h-3.5 w-3.5" />{t('Print')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => exportReportAsCSV('customers')} className="gap-1.5">
                       <Download className="h-3.5 w-3.5" />CSV
@@ -517,7 +506,7 @@ export default function ReportsPage() {
                   <CardTitle>{t('Debts Report')}</CardTitle>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => printGenericReport(debtsReport)} className="gap-1.5">
-                      <Printer className="h-3.5 w-3.5" />Print
+                      <Printer className="h-3.5 w-3.5" />{t('Print')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => exportReportAsCSV('debts')} className="gap-1.5">
                       <Download className="h-3.5 w-3.5" />CSV
@@ -549,7 +538,7 @@ export default function ReportsPage() {
                   <CardTitle>{t('Inventory Report')}</CardTitle>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => printGenericReport(inventoryReport)} className="gap-1.5">
-                      <Printer className="h-3.5 w-3.5" />Print
+                      <Printer className="h-3.5 w-3.5" />{t('Print')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => exportReportAsCSV('inventory')} className="gap-1.5">
                       <Download className="h-3.5 w-3.5" />CSV

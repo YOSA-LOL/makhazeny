@@ -17,21 +17,16 @@ interface Transaction {
 }
 interface TreasuryTransactionsProps {
   treasuryId?: string
+  refreshKey?: number
   limit?: number
 }
 
-const fmt = (v: number | string) => {
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(n)
-}
-
-const formatTime = (dateStr: string) =>
-  new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
 
 const typeLabel: Record<string, string> = {
   SALES_INCOME: 'Sales Income', INSTALLMENT_PAYMENT: 'Installment',
   MANUAL_INCOME: 'Manual Income', SUPPLIER_PAYMENT: 'Supplier Payment',
-  MANUAL_EXPENSE: 'Manual Expense', RETURN_REFUND: 'Return Refund',
+  MANUAL_EXPENSE: 'Manual Expense', RETURN_REFUND: 'Return Income',
+  INVENTORY_PURCHASE: 'Inventory Purchase',
   BALANCE_CARRYOVER: 'Balance Carryover',
 }
 const typeBadgeStyle: Record<string, string> = {
@@ -40,7 +35,8 @@ const typeBadgeStyle: Record<string, string> = {
   MANUAL_INCOME:       'bg-success/10 text-success border-success/20',
   SUPPLIER_PAYMENT:    'bg-warning/10 text-warning border-warning/20',
   MANUAL_EXPENSE:      'bg-destructive/10 text-destructive border-destructive/20',
-  RETURN_REFUND:       'bg-warning/10 text-warning border-warning/20',
+  INVENTORY_PURCHASE:  'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  RETURN_REFUND:       'bg-success/10 text-success border-success/20',
   BALANCE_CARRYOVER:   'bg-blue-500/10 text-blue-600 border-blue-500/20',
 }
 
@@ -59,35 +55,50 @@ function TableSkeleton() {
   )
 }
 
-export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransactionsProps) {
+export function TreasuryTransactions({ treasuryId, refreshKey = 0, limit = 20 }: TreasuryTransactionsProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [typeFilter, setTypeFilter] = useState('all')
-  const { t } = useLanguage()
+  const { t, td, formatCurrency, formatTime } = useLanguage()
   const { selectedDateStr } = useSelectedDate()
 
   useEffect(() => { setPage(1) }, [selectedDateStr])
-  useEffect(() => { fetchTransactions() }, [page, typeFilter, selectedDateStr, treasuryId])
+  useEffect(() => { fetchTransactions() }, [page, typeFilter, selectedDateStr, treasuryId, refreshKey])
+
+  async function resolveTreasuryId() {
+    if (treasuryId) return treasuryId
+    const response = await apiFetch('/api/treasury', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-by-date', date: selectedDateStr }),
+    })
+    const result = await response.json()
+    return result.data?.treasury?.id as string | undefined
+  }
 
   async function fetchTransactions() {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) })
-      if (treasuryId) {
-        params.append('treasuryId', treasuryId)
-      } else {
-        // Filter by selected date range
-        params.append('startDate', `${selectedDateStr}T00:00:00.000Z`)
-        params.append('endDate', `${selectedDateStr}T23:59:59.999Z`)
+      const resolvedTreasuryId = await resolveTreasuryId()
+      if (!resolvedTreasuryId) {
+        setTransactions([])
+        setTotal(0)
+        return
       }
+
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+        treasuryId: resolvedTreasuryId,
+      })
       if (typeFilter && typeFilter !== 'all') params.append('type', typeFilter)
       const response = await apiFetch(`/api/treasury/transactions?${params}`)
       const result = await response.json()
       if (result.success) { setTransactions(result.data); setTotal(result.pagination.total) }
-      else toast.error('Failed to fetch transactions')
-    } catch { toast.error('Failed to fetch transactions') }
+      else toast.error(t('Failed to fetch transactions'))
+    } catch { toast.error(t('Failed to fetch transactions')) }
     finally { setLoading(false) }
   }
 
@@ -111,6 +122,7 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
             <SelectItem value="MANUAL_INCOME">{t('Manual Income')}</SelectItem>
             <SelectItem value="SUPPLIER_PAYMENT">{t('Supplier Payment')}</SelectItem>
             <SelectItem value="MANUAL_EXPENSE">{t('Manual Expense')}</SelectItem>
+            <SelectItem value="INVENTORY_PURCHASE">{t('Inventory Purchase')}</SelectItem>
             <SelectItem value="RETURN_REFUND">{t('Returns')}</SelectItem>
             <SelectItem value="BALANCE_CARRYOVER">{t('Balance Carryover')}</SelectItem>
           </SelectContent>
@@ -150,7 +162,7 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
                             {t(typeLabel[tx.type] ?? tx.type)}
                           </span>
                         </TableCell>
-                        <TableCell className="text-sm max-w-xs truncate">{tx.description}</TableCell>
+                        <TableCell className="text-sm max-w-xs truncate">{td(tx.description)}</TableCell>
                         <TableCell>
                           {tx.reference ? (
                             <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{tx.reference}</code>
@@ -158,7 +170,7 @@ export function TreasuryTransactions({ treasuryId, limit = 20 }: TreasuryTransac
                         </TableCell>
                         <TableCell className="text-end pe-4">
                           <span className={cn('text-sm font-semibold tabular-nums', income ? 'text-success' : 'text-destructive')}>
-                            {income ? '+' : '−'}{fmt(tx.amount)}
+                            {income ? '+' : '−'}{formatCurrency(tx.amount)}
                           </span>
                         </TableCell>
                       </TableRow>

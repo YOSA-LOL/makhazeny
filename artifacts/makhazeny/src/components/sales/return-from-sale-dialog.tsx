@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useLanguage } from '@/lib/i18n'
+import { RETURN_REASONS } from '@/lib/constants'
 import { RotateCcw, Minus, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Sale, SaleItem } from './sales-list'
@@ -18,19 +19,9 @@ interface ReturnFromSaleDialogProps {
   onSuccess?: () => void
 }
 
-const REASONS = [
-  { value: 'CUSTOMER_REQUEST', label: 'طلب العميل' },
-  { value: 'DEFECTIVE', label: 'منتج معيب' },
-  { value: 'WRONG_ITEM', label: 'منتج خاطئ' },
-  { value: 'DAMAGE', label: 'تلف' },
-  { value: 'OTHER', label: 'أخرى' },
-]
-
-const fmt = (v: number) =>
-  new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(v)
-
 export function ReturnFromSaleDialog({ sale, open, onClose, onSuccess }: ReturnFromSaleDialogProps) {
-  const { t } = useLanguage()
+  const { t, formatCurrency, te } = useLanguage()
+  const REASONS = Object.entries(RETURN_REASONS).map(([value, label]) => ({ value, label: t(label) }))
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [reason, setReason] = useState('CUSTOMER_REQUEST')
   const [notes, setNotes] = useState('')
@@ -83,7 +74,7 @@ export function ReturnFromSaleDialog({ sale, open, onClose, onSuccess }: ReturnF
       })
       const createResult = await createRes.json()
       if (!createResult.success) {
-        toast.error(createResult.error || t('Failed to create return'))
+        toast.error(createResult.error ? te(createResult.error) : t('Failed to create return'))
         return
       }
 
@@ -94,11 +85,11 @@ export function ReturnFromSaleDialog({ sale, open, onClose, onSuccess }: ReturnF
       })
       const approveResult = await approveRes.json()
       if (!approveResult.success) {
-        toast.error(approveResult.error || t('Return created but approval failed'))
+        toast.error(approveResult.error ? te(approveResult.error) : t('Return created but approval failed'))
         return
       }
 
-      toast.success(`${t('Return processed successfully')} — ${fmt(totalReturnAmount)}`)
+      toast.success(`${t('Return processed successfully')} — ${formatCurrency(totalReturnAmount)}`)
       handleClose()
       onSuccess?.()
     } catch {
@@ -134,7 +125,7 @@ export function ReturnFromSaleDialog({ sale, open, onClose, onSuccess }: ReturnF
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{item.product.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {fmt(item.price)} × {max} {t('pcs')}
+                      {formatCurrency(item.price)} × {max} {t('pcs')}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -158,7 +149,7 @@ export function ReturnFromSaleDialog({ sale, open, onClose, onSuccess }: ReturnF
                   </div>
                   <div className="w-20 text-right">
                     {qty > 0 ? (
-                      <span className="text-sm font-semibold text-warning tabular-nums">{fmt(lineTotal)}</span>
+                      <span className="text-sm font-semibold text-warning tabular-nums">{formatCurrency(lineTotal)}</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
@@ -171,7 +162,7 @@ export function ReturnFromSaleDialog({ sale, open, onClose, onSuccess }: ReturnF
           {totalReturnAmount > 0 && (
             <div className="flex items-center justify-between px-3 py-2 bg-warning/10 border border-warning/20 rounded-lg">
               <span className="text-sm font-medium text-warning">{t('Total Return Amount')}</span>
-              <span className="text-base font-bold text-warning tabular-nums">{fmt(totalReturnAmount)}</span>
+              <span className="text-base font-bold text-warning tabular-nums">{formatCurrency(totalReturnAmount)}</span>
             </div>
           )}
 
@@ -208,7 +199,7 @@ export function ReturnFromSaleDialog({ sale, open, onClose, onSuccess }: ReturnF
             className="bg-warning text-warning-foreground hover:bg-warning/90 gap-1.5"
           >
             <RotateCcw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-            {loading ? t('Processing...') : `${t('Process Return')} ${selectedItems.length > 0 ? `(${fmt(totalReturnAmount)})` : ''}`}
+            {loading ? t('Processing...') : `${t('Process Return')} ${selectedItems.length > 0 ? `(${formatCurrency(totalReturnAmount)})` : ''}`}
           </Button>
         </DialogFooter>
       </DialogContent>

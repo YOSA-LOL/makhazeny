@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { useLanguage } from '@/lib/i18n'
 
 interface Supplier {
   id: string
@@ -23,6 +24,7 @@ interface SupplierFormProps {
 }
 
 export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
+  const { t, te } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -61,7 +63,7 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success(supplier ? 'Supplier updated successfully' : 'Supplier created successfully')
+        toast.success(supplier ? t('Supplier updated successfully') : t('Supplier created successfully'))
         onSuccess?.()
         if (!supplier) {
           setFormData({
@@ -73,11 +75,11 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
           })
         }
       } else {
-        toast.error(result.error || 'Failed to save supplier')
+        toast.error(result.error ? te(result.error) : t('Failed to save supplier'))
       }
     } catch (error) {
       console.error('Failed to save supplier:', error)
-      toast.error('Failed to save supplier')
+      toast.error(t('Failed to save supplier'))
     } finally {
       setLoading(false)
     }
@@ -86,16 +88,16 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{supplier ? 'Edit Supplier' : 'Add New Supplier'}</CardTitle>
+        <CardTitle>{supplier ? t('Edit Supplier') : t('Add New Supplier')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Supplier Name *</Label>
+              <Label htmlFor="name">{t('Supplier Name *')}</Label>
               <Input
                 id="name"
-                placeholder="Enter supplier name"
+                placeholder={t('Enter supplier name')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -103,7 +105,7 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">{t('Phone Number')}</Label>
               <Input
                 id="phone"
                 placeholder="+201001234567"
@@ -113,7 +115,7 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('Email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -124,20 +126,20 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">{t('City')}</Label>
               <Input
                 id="city"
-                placeholder="Enter city"
+                placeholder={t('Enter city')}
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               />
             </div>
 
             <div className="space-y-2 col-span-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t('Address')}</Label>
               <Input
                 id="address"
-                placeholder="Enter address"
+                placeholder={t('Enter address')}
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
@@ -146,7 +148,7 @@ export function SupplierForm({ supplier, onSuccess }: SupplierFormProps) {
 
           <div className="flex gap-4">
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : supplier ? 'Update Supplier' : 'Create Supplier'}
+              {loading ? t('Saving...') : supplier ? t('Update Supplier') : t('Create Supplier')}
             </Button>
           </div>
         </form>

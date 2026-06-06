@@ -28,9 +28,6 @@ interface ProductListProps {
   onDelete?: (productId: string) => void
 }
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(v)
-
 function TableSkeleton() {
   return (
     <div className="space-y-2 py-2">
@@ -54,7 +51,7 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 10
-  const { t } = useLanguage()
+  const { t, formatCurrency, te } = useLanguage()
 
   useEffect(() => { fetchProducts() }, [search, page])
 
@@ -68,29 +65,29 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
         setProducts(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error(result.error || 'Failed to fetch products')
+        toast.error(result.error ? te(result.error) : t('Failed to fetch products'))
       }
     } catch {
-      toast.error('Failed to fetch products')
+      toast.error(t('Failed to fetch products'))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleDelete(productId: string) {
-    if (!confirm('Delete this product?')) return
+    if (!confirm(t('Delete this product?'))) return
     try {
       const response = await apiFetch(`/api/products/${productId}`, { method: 'DELETE' })
       const result = await response.json()
       if (result.success) {
-        toast.success('Product deleted')
+        toast.success(t('Product deleted'))
         fetchProducts()
         onDelete?.(productId)
       } else {
-        toast.error(result.error || 'Failed to delete')
+        toast.error(result.error ? te(result.error) : t('Failed to delete'))
       }
     } catch {
-      toast.error('Failed to delete product')
+      toast.error(t('Failed to delete product'))
     }
   }
 
@@ -180,8 +177,8 @@ export function ProductList({ onEdit, onDelete }: ProductListProps) {
                           {product.quantity}
                         </span>
                       </TableCell>
-                      <TableCell className="text-end text-sm tabular-nums">{fmt(product.sellingPrice)}</TableCell>
-                      <TableCell className="text-end text-sm tabular-nums text-muted-foreground">{fmt(product.purchasePrice)}</TableCell>
+                      <TableCell className="text-end text-sm tabular-nums">{formatCurrency(product.sellingPrice)}</TableCell>
+                      <TableCell className="text-end text-sm tabular-nums text-muted-foreground">{formatCurrency(product.purchasePrice)}</TableCell>
                       <TableCell>
                         {isOutOfStock(product) ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 rounded-full px-2 py-0.5">

@@ -11,11 +11,12 @@ router.get('/debts', requireAuth, asyncHandler(async (req: Request, res: Respons
   const customerId = (req.query.customerId as string) ?? undefined
   const statusParam = (req.query.status as string) ?? undefined
   const status = statusParam === 'UNPAID' ? ['ACTIVE', 'PARTIAL'] : statusParam
+  const date = (req.query.date as string) ?? undefined
   const page = parseInt((req.query.page as string) || '1')
   const limit = parseInt((req.query.limit as string) || '10')
   const skip = (page - 1) * limit
 
-  const { items, total } = await store.debts.findMany({ customerId, status, skip, limit })
+  const { items, total } = await store.debts.findMany({ customerId, status, date, skip, limit })
   res.json({ success: true, data: items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
 }))
 

@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { SaleReceipt } from './sale-receipt'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { useLanguage } from '@/lib/i18n'
 
 interface Product {
   id: string
@@ -72,6 +73,7 @@ const PAYMENT_CHANNELS = [
 ]
 
 export function POSForm({ onSuccess }: POSFormProps) {
+  const { t, te, formatCurrency } = useLanguage()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -114,15 +116,15 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
   function addToCart() {
     if (!selectedProductId || !quantity) {
-      toast.error('Please select a product and quantity')
+      toast.error(t('Please select a product and quantity'))
       return
     }
     const product = products.find((p) => p.id === selectedProductId)
-    if (!product) { toast.error('Product not found'); return }
+    if (!product) { toast.error(t('Product not found')); return }
 
     const qty = parseInt(quantity)
     if (qty <= 0 || qty > product.quantity) {
-      toast.error(`Invalid quantity. Available: ${product.quantity}`)
+      toast.error(`${t('Invalid quantity. Available:')} ${product.quantity}`)
       return
     }
 
@@ -130,7 +132,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
     if (existingItem) {
       const newQty = existingItem.quantity + qty
       if (newQty > product.quantity) {
-        toast.error(`Not enough stock. Available: ${product.quantity}`)
+        toast.error(`${t('Not enough stock. Available:')} ${product.quantity}`)
         return
       }
       setCart(cart.map((item) =>
@@ -151,7 +153,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
     setSelectedProductId('')
     setQuantity('1')
-    toast.success(`${product.name} added to cart`)
+    toast.success(`${product.name} ${t('added to cart')}`)
   }
 
   function removeFromCart(productId: string) {
@@ -159,8 +161,8 @@ export function POSForm({ onSuccess }: POSFormProps) {
   }
 
   async function submitSale() {
-    if (!customerId) { toast.error('Please select a customer'); return }
-    if (cart.length === 0) { toast.error('Cart is empty'); return }
+    if (!customerId) { toast.error(t('Please select a customer')); return }
+    if (cart.length === 0) { toast.error(t('Cart is empty')); return }
 
     const paidAmount =
       paymentType === 'FULL'
@@ -202,11 +204,11 @@ export function POSForm({ onSuccess }: POSFormProps) {
         setNotes('')
         onSuccess?.()
       } else {
-        toast.error(result.error || 'Failed to create sale')
+        toast.error(result.error ? te(result.error) : t('Failed to create sale'))
       }
     } catch (error) {
       console.error('Failed to create sale:', error)
-      toast.error('Failed to create sale')
+      toast.error(t('Failed to create sale'))
     } finally {
       setLoading(false)
     }
@@ -221,9 +223,6 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
   const remainingAmount = Math.max(0, totalAmount - parsedPaid)
 
-  const fmt = (v: number) =>
-    new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(v)
-
   const cartHasItems = cart.length > 0
 
   // Validation errors
@@ -236,27 +235,27 @@ export function POSForm({ onSuccess }: POSFormProps) {
         <div className="space-y-4 col-span-2">
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Add Products to Sale</CardTitle>
+              <CardTitle className="text-base">{t('Add Products to Sale')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-3 items-end">
                 <div className="flex-1 space-y-1.5">
-                  <Label htmlFor="product" className="text-xs font-medium">Product</Label>
+                  <Label htmlFor="product" className="text-xs font-medium">{t('Product')}</Label>
                   <SearchableSelect
                     id="product"
                     value={selectedProductId}
                     onValueChange={setSelectedProductId}
-                    placeholder="Choose a product…"
-                    searchPlaceholder="Search products…"
+                    placeholder={t('Choose a product…')}
+                    searchPlaceholder={t('Search products…')}
                     options={products.filter((p) => p.quantity > 0).map((p) => ({
                       value: p.id,
                       label: p.name,
-                      sublabel: `${p.sku} · ${p.quantity} in stock · ${fmt(p.sellingPrice)}${p.supplier ? ` · ${p.supplier.name}` : ''}`,
+                      sublabel: `${p.sku} · ${p.quantity} ${t('in stock')} · ${formatCurrency(p.sellingPrice)}${p.supplier ? ` · ${p.supplier.name}` : ''}`,
                     }))}
                   />
                 </div>
                 <div className="w-24 space-y-1.5">
-                  <Label htmlFor="quantity" className="text-xs font-medium">Qty</Label>
+                  <Label htmlFor="quantity" className="text-xs font-medium">{t('Qty')}</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -268,7 +267,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
                 </div>
                 <Button onClick={addToCart} className="gap-1.5 shrink-0">
                   <Plus className="h-4 w-4" />
-                  Add to Cart
+                  {t('Add to Cart')}
                 </Button>
               </div>
             </CardContent>
@@ -276,9 +275,9 @@ export function POSForm({ onSuccess }: POSFormProps) {
 
           <Card className="shadow-sm">
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-base">Cart</CardTitle>
+              <CardTitle className="text-base">{t('Cart')}</CardTitle>
               {cart.length > 0 && (
-                <span className="text-xs text-muted-foreground">{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-muted-foreground">{cart.length} {cart.length !== 1 ? t('items') : t('item')}</span>
               )}
             </CardHeader>
             <CardContent className="p-0 pb-2">
@@ -287,17 +286,17 @@ export function POSForm({ onSuccess }: POSFormProps) {
                   <div className="rounded-full bg-muted p-5 mb-3">
                     <ShoppingCart className="h-6 w-6 text-muted-foreground" />
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground">Cart is empty</p>
-                  <p className="text-xs text-muted-foreground/60 mt-0.5">Add products above to start a sale</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('Cart is empty')}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">{t('Add products above to start a sale')}</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="pl-4 font-semibold text-xs uppercase tracking-wide">Product / Supplier</TableHead>
-                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Qty</TableHead>
-                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Unit Price</TableHead>
-                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Subtotal</TableHead>
+                      <TableHead className="pl-4 font-semibold text-xs uppercase tracking-wide">{t('Product / Supplier')}</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">{t('Qty')}</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">{t('Unit Price')}</TableHead>
+                      <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">{t('Subtotal')}</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
@@ -314,8 +313,8 @@ export function POSForm({ onSuccess }: POSFormProps) {
                           )}
                         </TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{item.quantity}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{fmt(item.price)}</TableCell>
-                        <TableCell className="text-right text-sm font-semibold tabular-nums">{fmt(item.total)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{formatCurrency(item.price)}</TableCell>
+                        <TableCell className="text-right text-sm font-semibold tabular-nums">{formatCurrency(item.total)}</TableCell>
                         <TableCell className="pr-2 text-center">
                           <Button
                             variant="ghost"
@@ -338,17 +337,17 @@ export function POSForm({ onSuccess }: POSFormProps) {
         <div className={cn('transition-opacity duration-300', !cartHasItems && 'opacity-40 pointer-events-none select-none')}>
           <Card className="h-fit shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Sale Summary</CardTitle>
+              <CardTitle className="text-base">{t('Sale Summary')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="customer" className="text-xs font-medium">Customer *</Label>
+                <Label htmlFor="customer" className="text-xs font-medium">{t('Customer *')}</Label>
                 <SearchableSelect
                   id="customer"
                   value={customerId}
                   onValueChange={setCustomerId}
-                  placeholder="Select customer…"
-                  searchPlaceholder="Search customers…"
+                  placeholder={t('Select customer…')}
+                  searchPlaceholder={t('Search customers…')}
                   options={customers.map((c) => ({
                     value: c.id,
                     label: c.name,
@@ -358,7 +357,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Payment Type</Label>
+                <Label className="text-xs font-medium">{t('Payment Type')}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -370,7 +369,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
                         : 'bg-background border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
                     )}
                   >
-                    Full Payment
+                    {t('Full Payment')}
                   </button>
                   <button
                     type="button"
@@ -382,20 +381,20 @@ export function POSForm({ onSuccess }: POSFormProps) {
                         : 'bg-background border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
                     )}
                   >
-                    Installment
+                    {t('Installment')}
                   </button>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="channel" className="text-xs font-medium">Payment Method</Label>
+                <Label htmlFor="channel" className="text-xs font-medium">{t('Payment Method')}</Label>
                 <Select value={paymentChannel} onValueChange={setPaymentChannel}>
                   <SelectTrigger id="channel">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {PAYMENT_CHANNELS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>{t(opt.label)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -405,13 +404,13 @@ export function POSForm({ onSuccess }: POSFormProps) {
                 <>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="paid-amount" className="text-xs font-medium">Amount Paid Now</Label>
+                      <Label htmlFor="paid-amount" className="text-xs font-medium">{t('Amount Paid Now')}</Label>
                       <button
                         type="button"
                         className="text-xs text-primary hover:underline"
                         onClick={() => setPaidAmountInput(String(totalAmount))}
                       >
-                        Pay full
+                        {t('Pay full')}
                       </button>
                     </div>
                     <Input
@@ -427,19 +426,19 @@ export function POSForm({ onSuccess }: POSFormProps) {
                     {installmentFullPay && (
                       <p className="text-xs text-destructive flex items-center gap-1 mt-1">
                         <AlertCircle className="h-3 w-3 shrink-0" />
-                        Installment requires a partial payment — use Full Payment instead.
+                        {t('Installment requires a partial payment — use Full Payment instead.')}
                       </p>
                     )}
                     {paidExceedsTotal && !installmentFullPay && (
                       <p className="text-xs text-destructive flex items-center gap-1 mt-1">
                         <AlertCircle className="h-3 w-3 shrink-0" />
-                        Amount paid cannot exceed the total ({fmt(totalAmount)}).
+                        {t('Amount paid cannot exceed the total')} ({formatCurrency(totalAmount)}).
                       </p>
                     )}
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="due-date" className="text-xs font-medium">Due Date <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Label htmlFor="due-date" className="text-xs font-medium">{t('Due Date')} <span className="text-muted-foreground font-normal">{t('(optional)')}</span></Label>
                     <Input
                       id="due-date"
                       type="date"
@@ -451,36 +450,36 @@ export function POSForm({ onSuccess }: POSFormProps) {
               )}
 
               <div className="space-y-1.5">
-                <Label htmlFor="notes" className="text-xs font-medium">Notes</Label>
-                <Input id="notes" placeholder="Add notes…" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <Label htmlFor="notes" className="text-xs font-medium">{t('Notes')}</Label>
+                <Input id="notes" placeholder={t('Add notes…')} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
 
               <div className="rounded-xl bg-muted/50 p-3 space-y-2 border">
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Line items</span>
+                  <span>{t('Line items')}</span>
                   <span className="font-medium text-foreground">{cart.length}</span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Total units</span>
+                  <span>{t('Total units')}</span>
                   <span className="font-medium text-foreground">{totalQty}</span>
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t">
-                  <span className="text-sm font-semibold">Total</span>
-                  <span className="text-xl font-bold text-primary tabular-nums">{fmt(totalAmount)}</span>
+                  <span className="text-sm font-semibold">{t('Total')}</span>
+                  <span className="text-xl font-bold text-primary tabular-nums">{formatCurrency(totalAmount)}</span>
                 </div>
                 {paymentType === 'INSTALLMENT' && (
                   <>
                     <div className="flex justify-between items-center text-sm font-medium text-green-600">
-                      <span>Paid Now</span>
-                      <span className="tabular-nums">{fmt(parsedPaid)}</span>
+                      <span>{t('Paid Now')}</span>
+                      <span className="tabular-nums">{formatCurrency(parsedPaid)}</span>
                     </div>
                     {remainingAmount > 0 && (
                       <div className="flex justify-between items-center text-sm font-semibold text-destructive border-t pt-2">
                         <div className="flex items-center gap-1">
                           <AlertCircle className="h-3.5 w-3.5" />
-                          <span>Remaining Debt</span>
+                          <span>{t('Remaining Debt')}</span>
                         </div>
-                        <span className="tabular-nums">{fmt(remainingAmount)}</span>
+                        <span className="tabular-nums">{formatCurrency(remainingAmount)}</span>
                       </div>
                     )}
                   </>
@@ -490,7 +489,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
               {paymentType === 'INSTALLMENT' && remainingAmount > 0 && (
                 <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 flex items-start gap-2">
                   <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  <span>The remaining <strong>{fmt(remainingAmount)}</strong> will be automatically recorded in the <strong>Debts</strong> page.</span>
+                  <span>{t('The remaining')} <strong>{formatCurrency(remainingAmount)}</strong> {t('will be automatically recorded in the')} <strong>{t('Debts')}</strong> {t('page.')}</span>
                 </div>
               )}
 
@@ -500,7 +499,7 @@ export function POSForm({ onSuccess }: POSFormProps) {
                 className="w-full gap-2"
                 size="lg"
               >
-                {loading ? 'Processing…' : 'Complete Sale'}
+                {loading ? t('Processing…') : t('Complete Sale')}
               </Button>
             </CardContent>
           </Card>

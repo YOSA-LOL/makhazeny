@@ -6,7 +6,7 @@ type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>
 
 export type StatTone = 'default' | 'success' | 'danger' | 'warning' | 'info'
 
-const INCOME_TYPES = ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME']
+const INCOME_TYPES = ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME', 'RETURN_REFUND']
 
 export function isIncomeTransaction(type: string): boolean {
   return INCOME_TYPES.includes(type)
@@ -67,6 +67,7 @@ export function getTreasuryTransactionBadgeVariant(type: string): BadgeVariant {
   ) {
     return 'success'
   }
+  if (upper === 'RETURN_REFUND') return 'success'
   if (upper.includes('EXPENSE') || upper.includes('PAYMENT') || upper.includes('REFUND')) {
     return 'destructive'
   }
@@ -78,11 +79,12 @@ export function getTransactionTone(type: string): StatTone {
   if (
     upper.includes('INCOME') ||
     upper.includes('SALES') ||
-    upper.includes('INSTALLMENT')
+    upper.includes('INSTALLMENT') ||
+    upper === 'RETURN_REFUND'
   ) {
     return 'success'
   }
-  if (upper.includes('EXPENSE') || upper.includes('PAYMENT') || upper.includes('REFUND')) {
+  if (upper.includes('EXPENSE') || upper.includes('PAYMENT') || (upper.includes('REFUND') && upper !== 'RETURN_REFUND')) {
     return 'danger'
   }
   return 'default'

@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { CheckCircle, XCircle, Clock, RotateCcw } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, RotateCcw, CalendarDays } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n'
+import { useSelectedDate } from '@/lib/date-context'
+import { RETURN_REASONS } from '@/lib/constants'
 
 interface ReturnItem { id: string; productId: string; quantity: number; returnAmount: number }
 interface Return {
@@ -14,11 +16,6 @@ interface Return {
   sale: { saleNumber: string; customer: { name: string } }
   totalReturnAmount: number; reason: string; status: string
   items: ReturnItem[]; createdAt: string
-}
-
-const fmt = (v: number | string) => {
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(n)
 }
 
 const statusStyle: Record<string, string> = {
@@ -55,19 +52,23 @@ export function ReturnsList() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 10
-  const { t } = useLanguage()
+  const { t, te, formatCurrency, formatDate } = useLanguage()
+  const { selectedDate, selectedDateStr, isToday } = useSelectedDate()
+  const reasonLabel = (reason: string) =>
+    t(RETURN_REASONS[reason as keyof typeof RETURN_REASONS] ?? reason)
 
-  useEffect(() => { fetchReturns() }, [page])
+  useEffect(() => { setPage(1) }, [selectedDateStr])
+  useEffect(() => { fetchReturns() }, [page, selectedDateStr])
 
   async function fetchReturns() {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+      const params = new URLSearchParams({ page: String(page), limit: String(limit), date: selectedDateStr })
       const response = await apiFetch(`/api/returns?${params}`)
       const result = await response.json()
       if (result.success) { setReturns(result.data); setTotal(result.pagination.total) }
-      else toast.error('Failed to fetch returns')
-    } catch { toast.error('Failed to fetch returns') }
+      else toast.error(t('Failed to fetch returns'))
+    } catch { toast.error(t('Failed to fetch returns')) }
     finally { setLoading(false) }
   }
 
@@ -78,9 +79,9 @@ export function ReturnsList() {
         body: JSON.stringify({ status: 'APPROVED' }),
       })
       const result = await response.json()
-      if (result.success) { toast.success('Return approved'); fetchReturns() }
-      else toast.error(result.error || 'Failed to approve')
-    } catch { toast.error('Failed to approve return') }
+      if (result.success) { toast.success(t('Return approved')); fetchReturns() }
+      else toast.error(result.error ? te(result.error) : t('Failed to approve'))
+    } catch { toast.error(t('Failed to approve return')) }
   }
 
   async function handleReject(returnId: string) {
@@ -90,19 +91,29 @@ export function ReturnsList() {
         body: JSON.stringify({ status: 'REJECTED' }),
       })
       const result = await response.json()
-      if (result.success) { toast.success('Return rejected'); fetchReturns() }
-      else toast.error('Failed to reject return')
-    } catch { toast.error('Failed to reject return') }
+      if (result.success) { toast.success(t('Return rejected')); fetchReturns() }
+      else toast.error(t('Failed to reject return'))
+    } catch { toast.error(t('Failed to reject return')) }
   }
 
   const pages = Math.ceil(total / limit)
+
+  const dayLabel = isToday
+    ? t('Today')
+    : formatDate(selectedDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
         <div>
           <CardTitle className="text-base">{t('Sales Returns')}</CardTitle>
-          {!loading && <p className="text-xs text-muted-foreground mt-0.5">{total} {t('records')}</p>}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <CalendarDays className="h-3.5 w-3.5 text-primary" />
+            <p className="text-xs text-primary font-medium">{dayLabel}</p>
+            {!loading && (
+              <span className="text-xs text-muted-foreground">· {total} {t('records')}</span>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-0 pb-4">
@@ -138,9 +149,9 @@ export function ReturnsList() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{r.sale.saleNumber}</TableCell>
                       <TableCell className="text-sm font-medium">{r.sale.customer.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">{r.reason}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">{reasonLabel(r.reason)}</TableCell>
                       <TableCell className="text-end text-sm">{r.items.length}</TableCell>
-                      <TableCell className="text-end text-sm font-semibold tabular-nums">{fmt(r.totalReturnAmount)}</TableCell>
+                      <TableCell className="text-end text-sm font-semibold tabular-nums">{formatCurrency(r.totalReturnAmount)}</TableCell>
                       <TableCell>
                         <span className={cn('inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5',
                           statusStyle[r.status] ?? 'bg-muted text-muted-foreground border-border')}>

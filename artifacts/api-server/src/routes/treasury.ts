@@ -2,27 +2,20 @@ import { Router } from 'express'
 import { store } from '../lib/store.js'
 import { requireAuth } from '../middlewares/requireAuth.js'
 import { asyncHandler } from '../lib/asyncHandler.js'
+import { calcTreasurySummary, INCOME_TYPES, EXPENSE_TYPES } from '../lib/treasury-helpers.js'
 import type { Request, Response } from 'express'
 
 const router = Router()
 
-const INCOME_TYPES = ['SALES_INCOME', 'INSTALLMENT_PAYMENT', 'MANUAL_INCOME', 'BALANCE_CARRYOVER']
-const EXPENSE_TYPES = ['SUPPLIER_PAYMENT', 'MANUAL_EXPENSE', 'RETURN_REFUND']
-
-function calcSummary(transactions: { type: string; amount: number }[], openingBalance: number) {
-  const income = transactions.filter((t) => INCOME_TYPES.includes(t.type)).reduce((sum, t) => sum + t.amount, 0)
-  const expenses = transactions.filter((t) => EXPENSE_TYPES.includes(t.type)).reduce((sum, t) => sum + t.amount, 0)
-  const profit = income - expenses
-  return { income, expenses, profit, closingBalance: openingBalance + profit }
-}
-
 router.get('/treasury', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const date = (req.query.date as string) ?? undefined
+  const from = (req.query.from as string) ?? undefined
+  const to = (req.query.to as string) ?? undefined
   const page = parseInt((req.query.page as string) || '1')
   const limit = parseInt((req.query.limit as string) || '10')
   const skip = (page - 1) * limit
 
-  const { items, total } = await store.treasury.findMany({ date, skip, limit })
+  const { items, total } = await store.treasury.findMany({ date, from, to, skip, limit })
   res.json({ success: true, data: items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
 }))
 
@@ -36,7 +29,7 @@ async function sealPastOpenTreasuries(beforeDate: Date) {
     tDay.setHours(0, 0, 0, 0)
     if (tDay.getTime() < todayStart.getTime() && !t.isClosed) {
       const txns = (t.transactions || []).filter((tx: { type: string }) => tx.type !== 'BALANCE_CARRYOVER')
-      const { closingBalance } = calcSummary(txns, t.openingBalance)
+      const { closingBalance } = calcTreasurySummary(txns, t.openingBalance)
       await store.treasury.closeDay(t.id, closingBalance, true)
     }
   }
@@ -94,7 +87,7 @@ router.post('/treasury', requireAuth, asyncHandler(async (req: Request, res: Res
 
     const transactions = treasury.transactions || []
     const regularTransactions = transactions.filter((t) => t.type !== 'BALANCE_CARRYOVER')
-    const summary = calcSummary(regularTransactions, treasury.openingBalance)
+    const summary = calcTreasurySummary(regularTransactions, treasury.openingBalance)
     return res.json({
       success: true,
       data: {
@@ -121,7 +114,7 @@ router.post('/treasury', requireAuth, asyncHandler(async (req: Request, res: Res
 
     const transactions = treasury.transactions || []
     const regularTransactions = transactions.filter((t) => t.type !== 'BALANCE_CARRYOVER')
-    const summary = calcSummary(regularTransactions, treasury.openingBalance)
+    const summary = calcTreasurySummary(regularTransactions, treasury.openingBalance)
 
     const closedBySystem = req.body.closedBySystem === true
     const updated = await store.treasury.closeDay(treasuryId, summary.closingBalance, closedBySystem)

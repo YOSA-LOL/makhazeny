@@ -23,9 +23,6 @@ interface SupplierListProps {
   onDelete?: (supplierId: string) => void
 }
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(v)
-
 function TableSkeleton() {
   return (
     <div className="space-y-2 py-2">
@@ -48,7 +45,7 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 10
-  const { t } = useLanguage()
+  const { t, formatCurrency, te } = useLanguage()
 
   useEffect(() => { fetchSuppliers() }, [search, page])
 
@@ -62,29 +59,29 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
         setSuppliers(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error(result.error || 'Failed to fetch suppliers')
+        toast.error(result.error ? te(result.error) : t('Failed to fetch suppliers'))
       }
     } catch {
-      toast.error('Failed to fetch suppliers')
+      toast.error(t('Failed to fetch suppliers'))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleDelete(supplierId: string) {
-    if (!confirm('Delete this supplier?')) return
+    if (!confirm(t('Delete this supplier?'))) return
     try {
       const response = await apiFetch(`/api/suppliers/${supplierId}`, { method: 'DELETE' })
       const result = await response.json()
       if (result.success) {
-        toast.success('Supplier deleted')
+        toast.success(t('Supplier deleted'))
         fetchSuppliers()
         onDelete?.(supplierId)
       } else {
-        toast.error(result.error || 'Failed to delete')
+        toast.error(result.error ? te(result.error) : t('Failed to delete'))
       }
     } catch {
-      toast.error('Failed to delete supplier')
+      toast.error(t('Failed to delete supplier'))
     }
   }
 
@@ -149,7 +146,7 @@ export function SupplierList({ onEdit, onDelete }: SupplierListProps) {
                           'text-sm font-semibold tabular-nums',
                           Number(supplier.balance) > 0 ? 'text-warning' : 'text-success'
                         )}>
-                          {fmt(Number(supplier.balance))}
+                          {formatCurrency(Number(supplier.balance))}
                         </span>
                       </TableCell>
                       <TableCell className="text-end pe-4">

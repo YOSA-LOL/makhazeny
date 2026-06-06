@@ -9,7 +9,9 @@ interface DateContextValue {
 
 const DateContext = createContext<DateContextValue | null>(null)
 
-function toDateStr(d: Date) {
+export const HISTORY_DAYS_BEFORE = 7
+
+export function toDateStr(d: Date) {
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -38,4 +40,12 @@ export function useSelectedDate() {
   const ctx = useContext(DateContext)
   if (!ctx) throw new Error('useSelectedDate must be used within DateProvider')
   return ctx
+}
+
+export function getHistoryDateRange(selectedDate: Date) {
+  const end = new Date(selectedDate)
+  end.setHours(0, 0, 0, 0)
+  const start = new Date(end)
+  start.setDate(start.getDate() - HISTORY_DAYS_BEFORE)
+  return { start, end, fromStr: toDateStr(start), toStr: toDateStr(end) }
 }

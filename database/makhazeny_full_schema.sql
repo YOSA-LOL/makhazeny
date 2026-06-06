@@ -400,7 +400,7 @@ CREATE TABLE `supplier_payments` (
 CREATE TABLE `treasury_transactions` (
   `id`                  CHAR(36) NOT NULL,
   `treasury_id`         CHAR(36) NOT NULL,
-  `type`                ENUM('SALES_INCOME', 'INSTALLMENT_PAYMENT', 'SUPPLIER_PAYMENT', 'RETURN_REFUND', 'MANUAL_EXPENSE', 'MANUAL_INCOME', 'BALANCE_CARRYOVER') NOT NULL COMMENT 'نوع الحركة',
+  `type`                ENUM('SALES_INCOME', 'INSTALLMENT_PAYMENT', 'SUPPLIER_PAYMENT', 'RETURN_REFUND', 'MANUAL_EXPENSE', 'MANUAL_INCOME', 'INVENTORY_PURCHASE', 'BALANCE_CARRYOVER') NOT NULL COMMENT 'نوع الحركة',
   `amount`              DECIMAL(12,2) NOT NULL COMMENT 'المبلغ',
   `description`         VARCHAR(500) NOT NULL COMMENT 'الوصف',
   `reference`           VARCHAR(100) NULL COMMENT 'المرجع',

@@ -13,6 +13,7 @@ export type TransactionType =
   | 'RETURN_REFUND'
   | 'MANUAL_EXPENSE'
   | 'MANUAL_INCOME'
+  | 'INVENTORY_PURCHASE'
   | 'BALANCE_CARRYOVER'
 
 export interface User {

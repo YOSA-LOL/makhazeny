@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useLanguage } from '@/lib/i18n'
 
 export interface SearchableSelectOption {
   value: string
@@ -27,15 +28,19 @@ export function SearchableSelect({
   options,
   value,
   onValueChange,
-  placeholder = 'Select…',
-  searchPlaceholder = 'Search…',
-  emptyMessage = 'No results found.',
+  placeholder,
+  searchPlaceholder,
+  emptyMessage,
   className,
   disabled,
   id,
 }: SearchableSelectProps) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const selected = options.find((o) => o.value === value)
+  const resolvedPlaceholder = placeholder ?? t('Select…')
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('Search…')
+  const resolvedEmptyMessage = emptyMessage ?? t('No results found.')
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -48,15 +53,15 @@ export function SearchableSelect({
           className={cn('w-full justify-between font-normal h-9 px-3 focus-visible:ring-0 focus-visible:ring-offset-0', !selected && 'text-muted-foreground', className)}
           disabled={disabled}
         >
-          <span className="truncate text-sm">{selected ? selected.label : placeholder}</span>
+          <span className="truncate text-sm">{selected ? selected.label : resolvedPlaceholder}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder={searchPlaceholder} className="h-9" />
+          <CommandInput placeholder={resolvedSearchPlaceholder} className="h-9" />
           <CommandList>
-            <CommandEmpty>{emptyMessage}</CommandEmpty>
+            <CommandEmpty>{resolvedEmptyMessage}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem

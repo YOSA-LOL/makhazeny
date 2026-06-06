@@ -15,7 +15,7 @@ export const registerSchema = z.object({
 // Product Schemas
 export const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
-  sku: z.string().min(1, 'SKU is required'),
+  sku: z.string().optional(),
   description: z.string().optional(),
   categoryId: z.string().min(1, 'Category is required'),
   purchasePrice: z.string().or(z.number()).pipe(z.coerce.number().positive('Price must be positive')),

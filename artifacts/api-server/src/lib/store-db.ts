@@ -376,6 +376,16 @@ export const store = {
       )
       return rows[0] ? mapProduct(rows[0]) : null
     },
+    async findByNameAndCategory(name: string, categoryId: string) {
+      const [rows] = await getPool().query<RowDataPacket[]>(
+        'SELECT * FROM products WHERE LOWER(name) = LOWER(?) AND category_id = ? LIMIT 1',
+        [name, categoryId],
+      )
+      if (!rows[0]) return null
+      const categories = await loadCategories()
+      const suppliers = await loadSuppliers()
+      return withCategory(mapProduct(rows[0]), categories, suppliers)
+    },
     async create(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) {
       const productId = id()
       const t = now()
@@ -746,10 +756,11 @@ export const store = {
   },
 
   debts: {
-    async findMany(opts: { customerId?: string; status?: string | string[]; skip: number; limit: number }) {
+    async findMany(opts: { customerId?: string; status?: string | string[]; date?: string; skip: number; limit: number }) {
       let sql = 'SELECT * FROM debts WHERE 1=1'
       const params: unknown[] = []
       if (opts.customerId) { sql += ' AND customer_id = ?'; params.push(opts.customerId) }
+      if (opts.date) { sql += ' AND DATE(created_at) = ?'; params.push(opts.date.split('T')[0]) }
       if (opts.status) {
         const statuses = Array.isArray(opts.status) ? opts.status : [opts.status]
         sql += ` AND status IN (${statuses.map(() => '?').join(',')})`
@@ -854,10 +865,11 @@ export const store = {
   },
 
   returns: {
-    async findMany(opts: { status?: string; skip: number; limit: number }) {
-      let sql = 'SELECT * FROM returns'
+    async findMany(opts: { status?: string; date?: string; skip: number; limit: number }) {
+      let sql = 'SELECT * FROM returns WHERE 1=1'
       const params: unknown[] = []
-      if (opts.status) { sql += ' WHERE status = ?'; params.push(opts.status) }
+      if (opts.status) { sql += ' AND status = ?'; params.push(opts.status) }
+      if (opts.date) { sql += ' AND DATE(created_at) = ?'; params.push(opts.date.split('T')[0]) }
       sql += ' ORDER BY created_at DESC'
       const [rows] = await getPool().query<RowDataPacket[]>(sql, params)
       const returns = rows.map(mapReturn)
@@ -945,10 +957,13 @@ export const store = {
   },
 
   treasury: {
-    async findMany(opts: { date?: string; skip: number; limit: number }) {
+    async findMany(opts: { date?: string; from?: string; to?: string; skip: number; limit: number }) {
       let sql = 'SELECT * FROM treasuries'
       const params: unknown[] = []
-      if (opts.date === 'today') {
+      if (opts.from && opts.to) {
+        sql += ' WHERE date >= ? AND date <= ?'
+        params.push(opts.from.split('T')[0], opts.to.split('T')[0])
+      } else if (opts.date === 'today') {
         sql += ' WHERE date = CURDATE()'
       } else if (opts.date) {
         sql += ' WHERE date = ?'

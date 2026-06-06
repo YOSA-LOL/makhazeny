@@ -9,11 +9,12 @@ const router = Router()
 
 router.get('/returns', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const status = req.query.status as string | undefined
+  const date = (req.query.date as string) ?? undefined
   const page = parseInt((req.query.page as string) || '1')
   const limit = parseInt((req.query.limit as string) || '10')
   const skip = (page - 1) * limit
 
-  const { items, total } = await store.returns.findMany({ status, skip, limit })
+  const { items, total } = await store.returns.findMany({ status, date, skip, limit })
   res.json({ success: true, data: items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
 }))
 
@@ -74,7 +75,7 @@ router.put('/returns/:id', requireAuth, asyncHandler(async (req: Request, res: R
         treasuryId: treasury.id,
         type: 'RETURN_REFUND',
         amount: returnRecord.totalReturnAmount,
-        description: `Return refund for sale ${returnRecord.sale.saleNumber}`,
+        description: `Return income — stock recovered from sale ${returnRecord.sale.saleNumber}`,
         reference: paramId(req),
         saleId: null,
         paymentId: null,

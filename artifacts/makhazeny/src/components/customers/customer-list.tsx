@@ -24,9 +24,6 @@ interface CustomerListProps {
   onDelete?: (customerId: string) => void
 }
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(v)
-
 function TableSkeleton() {
   return (
     <div className="space-y-2 py-2">
@@ -49,7 +46,7 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 10
-  const { t } = useLanguage()
+  const { t, te, formatCurrency } = useLanguage()
 
   useEffect(() => { fetchCustomers() }, [search, page])
 
@@ -63,29 +60,29 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
         setCustomers(result.data)
         setTotal(result.pagination.total)
       } else {
-        toast.error(result.error || 'Failed to fetch customers')
+        toast.error(result.error ? te(result.error) : t('Failed to fetch customers'))
       }
     } catch {
-      toast.error('Failed to fetch customers')
+      toast.error(t('Failed to fetch customers'))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleDelete(customerId: string) {
-    if (!confirm('Delete this customer?')) return
+    if (!confirm(t('Delete this customer?'))) return
     try {
       const response = await apiFetch(`/api/customers/${customerId}`, { method: 'DELETE' })
       const result = await response.json()
       if (result.success) {
-        toast.success('Customer deleted')
+        toast.success(t('Customer deleted'))
         fetchCustomers()
         onDelete?.(customerId)
       } else {
-        toast.error(result.error || 'Failed to delete')
+        toast.error(result.error ? te(result.error) : t('Failed to delete'))
       }
     } catch {
-      toast.error('Failed to delete customer')
+      toast.error(t('Failed to delete customer'))
     }
   }
 
@@ -155,10 +152,10 @@ export function CustomerList({ onEdit, onDelete }: CustomerListProps) {
                           isOverdue(customer) && 'text-destructive',
                           !isOverdue(customer) && hasDebt(customer) && 'text-warning',
                         )}>
-                          {fmt(customer.totalDebt)}
+                          {formatCurrency(customer.totalDebt)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-end text-sm tabular-nums text-muted-foreground">{fmt(customer.creditLimit)}</TableCell>
+                      <TableCell className="text-end text-sm tabular-nums text-muted-foreground">{formatCurrency(customer.creditLimit)}</TableCell>
                       <TableCell>
                         {isOverdue(customer) ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 rounded-full px-2 py-0.5">

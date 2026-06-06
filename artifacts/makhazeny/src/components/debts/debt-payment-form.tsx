@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { PAYMENT_METHODS } from '@/lib/constants'
 import { toast } from 'sonner'
+import { useLanguage } from '@/lib/i18n'
 
 interface Debt {
   id: string
@@ -31,6 +32,7 @@ interface DebtPaymentFormProps {
 }
 
 export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
+  const { t, formatCurrency, te } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('CASH')
@@ -46,11 +48,11 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
     return (
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Record Payment</CardTitle>
+          <CardTitle>{t('Record Payment')}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Select a debt from the list to record a payment.
+            {t('Select a debt from the list to record a payment.')}
           </p>
         </CardContent>
       </Card>
@@ -63,19 +65,16 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
     ? Math.round((paidAmount / Number(debt.originalAmount)) * 100)
     : 0
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP' }).format(value)
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!debt) return
     const paymentAmount = parseFloat(amount)
     if (!paymentAmount || paymentAmount <= 0) {
-      toast.error('Please enter a valid payment amount')
+      toast.error(t('Please enter a valid payment amount'))
       return
     }
     if (paymentAmount > remainingAmount) {
-      toast.error('Payment exceeds remaining debt')
+      toast.error(t('Payment exceeds remaining debt'))
       return
     }
 
@@ -88,16 +87,16 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
       })
       const result = await response.json()
       if (result.success) {
-        toast.success('Payment recorded successfully')
+        toast.success(t('Payment recorded successfully'))
         setAmount('')
         setNotes('')
         onSuccess?.()
       } else {
-        toast.error(result.error || 'Failed to record payment')
+        toast.error(result.error ? te(result.error) : t('Failed to record payment'))
       }
     } catch (error) {
       console.error('Failed to record payment:', error)
-      toast.error('Failed to record payment')
+      toast.error(t('Failed to record payment'))
     } finally {
       setLoading(false)
     }
@@ -106,33 +105,33 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Record Payment</CardTitle>
+        <CardTitle>{t('Record Payment')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="font-medium">Customer:</span>
+            <span className="font-medium">{t('Customer:')}</span>
             <span>{debt.customer.name}</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-medium">Original Debt:</span>
+            <span className="font-medium">{t('Original Debt:')}</span>
             <span>{formatCurrency(Number(debt.originalAmount))}</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-medium">Already Paid:</span>
+            <span className="font-medium">{t('Already Paid:')}</span>
             <span className="text-success">
               {formatCurrency(paidAmount)} ({paymentPercent}%)
             </span>
           </div>
           <div className="flex justify-between pt-2 border-t">
-            <span className="font-bold">Remaining:</span>
+            <span className="font-bold">{t('Remaining:')}</span>
             <span className="text-destructive font-bold">{formatCurrency(remainingAmount)}</span>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="amount">Payment Amount *</Label>
+            <Label htmlFor="amount">{t('Payment Amount *')}</Label>
             <div className="flex gap-2">
               <Input
                 id="amount"
@@ -150,13 +149,13 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
                 variant="outline"
                 onClick={() => setAmount(String(remainingAmount))}
               >
-                Pay Full
+                {t('Pay Full')}
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Payment Method</Label>
+            <Label htmlFor="paymentMethod">{t('Payment Method')}</Label>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
               <SelectTrigger id="paymentMethod">
                 <SelectValue />
@@ -164,7 +163,7 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
               <SelectContent>
                 {Object.entries(PAYMENT_METHODS).map(([key, label]) => (
                   <SelectItem key={key} value={key}>
-                    {label}
+                    {t(label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -172,18 +171,18 @@ export function DebtPaymentForm({ debt, onSuccess }: DebtPaymentFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t('Notes')}</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional payment notes"
+              placeholder={t('Optional payment notes')}
               rows={3}
             />
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Processing...' : 'Record Payment'}
+            {loading ? t('Processing...') : t('Record Payment')}
           </Button>
         </form>
       </CardContent>

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { useLanguage } from '@/lib/i18n'
 
 interface Customer {
   id: string
@@ -24,6 +25,7 @@ interface CustomerFormProps {
 }
 
 export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
+  const { t, te } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -67,7 +69,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
       const result = await response.json()
 
       if (result.success) {
-        toast.success(customer ? 'Customer updated successfully' : 'Customer created successfully')
+        toast.success(customer ? t('Customer updated successfully') : t('Customer created successfully'))
         onSuccess?.()
         if (!customer) {
           setFormData({
@@ -80,11 +82,11 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
           })
         }
       } else {
-        toast.error(result.error || 'Failed to save customer')
+        toast.error(result.error ? te(result.error) : t('Failed to save customer'))
       }
     } catch (error) {
       console.error('Failed to save customer:', error)
-      toast.error('Failed to save customer')
+      toast.error(t('Failed to save customer'))
     } finally {
       setLoading(false)
     }
@@ -93,16 +95,16 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{customer ? 'Edit Customer' : 'Add New Customer'}</CardTitle>
+        <CardTitle>{customer ? t('Edit Customer') : t('Add New Customer')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Customer Name *</Label>
+              <Label htmlFor="name">{t('Customer Name *')}</Label>
               <Input
                 id="name"
-                placeholder="Enter customer name"
+                placeholder={t('Enter customer name')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -110,7 +112,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">{t('Phone Number')}</Label>
               <Input
                 id="phone"
                 placeholder="+201001234567"
@@ -120,7 +122,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('Email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -131,27 +133,27 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">{t('City')}</Label>
               <Input
                 id="city"
-                placeholder="Enter city"
+                placeholder={t('Enter city')}
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t('Address')}</Label>
               <Input
                 id="address"
-                placeholder="Enter address"
+                placeholder={t('Enter address')}
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="creditLimit">Credit Limit (EGP)</Label>
+              <Label htmlFor="creditLimit">{t('Credit Limit (EGP)')}</Label>
               <Input
                 id="creditLimit"
                 type="number"
@@ -165,7 +167,7 @@ export function CustomerForm({ customer, onSuccess }: CustomerFormProps) {
 
           <div className="flex gap-4">
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : customer ? 'Update Customer' : 'Create Customer'}
+              {loading ? t('Saving...') : customer ? t('Update Customer') : t('Create Customer')}
             </Button>
           </div>
         </form>

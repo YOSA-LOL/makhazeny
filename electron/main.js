@@ -213,6 +213,10 @@ function createWindow(loadUrl) {
   mainWindow.loadURL(loadUrl);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow in-app print previews (about:blank); open real URLs externally.
+    if (!url || url === "about:blank") {
+      return { action: "allow" };
+    }
     shell.openExternal(url);
     return { action: "deny" };
   });

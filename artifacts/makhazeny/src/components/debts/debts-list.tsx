@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { AlertCircle, CreditCard, Receipt } from 'lucide-react'
+import { AlertCircle, CreditCard, Receipt, CalendarDays } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n'
+import { useSelectedDate } from '@/lib/date-context'
 
 interface Debt {
   id: string
@@ -21,11 +22,6 @@ interface Debt {
 
 interface DebtsListProps {
   onPayment?: (debt: Debt) => void
-}
-
-const fmt = (v: number | string) => {
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(n)
 }
 
 const statusStyle: Record<string, string> = {
@@ -56,19 +52,21 @@ export function DebtsList({ onPayment }: DebtsListProps) {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 10
-  const { t } = useLanguage()
+  const { t, formatCurrency, formatDate } = useLanguage()
+  const { selectedDate, selectedDateStr, isToday } = useSelectedDate()
 
-  useEffect(() => { fetchDebts() }, [statusFilter, page])
+  useEffect(() => { setPage(1) }, [selectedDateStr])
+  useEffect(() => { fetchDebts() }, [statusFilter, page, selectedDateStr])
 
   async function fetchDebts() {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ status: statusFilter, page: String(page), limit: String(limit) })
+      const params = new URLSearchParams({ status: statusFilter, page: String(page), limit: String(limit), date: selectedDateStr })
       const response = await apiFetch(`/api/debts?${params}`)
       const result = await response.json()
       if (result.success) { setDebts(result.data); setTotal(result.pagination.total) }
-      else toast.error('Failed to fetch debts')
-    } catch { toast.error('Failed to fetch debts') }
+      else toast.error(t('Failed to fetch debts'))
+    } catch { toast.error(t('Failed to fetch debts')) }
     finally { setLoading(false) }
   }
 
@@ -85,12 +83,22 @@ export function DebtsList({ onPayment }: DebtsListProps) {
     PAID:   'text-success bg-success/10 border-success/20',
   }
 
+  const dayLabel = isToday
+    ? t('Today')
+    : formatDate(selectedDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
         <div>
           <CardTitle className="text-base">{t('Outstanding Debts')}</CardTitle>
-          {!loading && <p className="text-xs text-muted-foreground mt-0.5">{total} {t('records')}</p>}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <CalendarDays className="h-3.5 w-3.5 text-primary" />
+            <p className="text-xs text-primary font-medium">{dayLabel}</p>
+            {!loading && (
+              <span className="text-xs text-muted-foreground">· {total} {t('records')}</span>
+            )}
+          </div>
         </div>
         <div className="flex gap-1.5">
           {(['UNPAID', 'PAID'] as const).map((status) => (
@@ -142,11 +150,11 @@ export function DebtsList({ onPayment }: DebtsListProps) {
                     return (
                       <TableRow key={debt.id} className={cn('group', overdue && 'bg-destructive/3')}>
                         <TableCell className="ps-4 font-medium text-sm">{debt.customer.name}</TableCell>
-                        <TableCell className="text-end text-sm tabular-nums text-muted-foreground">{fmt(debt.originalAmount)}</TableCell>
+                        <TableCell className="text-end text-sm tabular-nums text-muted-foreground">{formatCurrency(debt.originalAmount)}</TableCell>
                         <TableCell className="text-end">
                           <span className={cn('text-sm font-semibold tabular-nums',
                             Number(debt.remainingAmount) > 0 ? 'text-destructive' : 'text-success')}>
-                            {fmt(debt.remainingAmount)}
+                            {formatCurrency(debt.remainingAmount)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -165,7 +173,7 @@ export function DebtsList({ onPayment }: DebtsListProps) {
                             <div className="flex items-center gap-1">
                               {overdue && <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />}
                               <span className={cn('text-xs', overdue ? 'text-destructive font-medium' : 'text-muted-foreground')}>
-                                {new Date(debt.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                {formatDate(debt.dueDate, { day: 'numeric', month: 'short', year: 'numeric' })}
                               </span>
                             </div>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
@@ -173,7 +181,7 @@ export function DebtsList({ onPayment }: DebtsListProps) {
                         <TableCell>
                           <span className={cn('inline-flex text-xs font-semibold border rounded-full px-2 py-0.5',
                             statusStyle[debt.status] ?? 'text-muted-foreground bg-muted border-border')}>
-                            {debt.status}
+                            {t(debt.status)}
                           </span>
                         </TableCell>
                         <TableCell className="text-end pe-4">

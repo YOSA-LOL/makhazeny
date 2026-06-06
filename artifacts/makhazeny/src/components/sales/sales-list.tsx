@@ -8,6 +8,7 @@ import { Printer, Search, ShoppingCart, Trash2, RotateCcw, CalendarDays } from '
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/lib/i18n'
+import { PAYMENT_METHODS } from '@/lib/constants'
 import { ReturnFromSaleDialog } from './return-from-sale-dialog'
 import { useSelectedDate } from '@/lib/date-context'
 
@@ -42,11 +43,6 @@ interface SalesListProps {
   onPrintReceipt?: (sale: Sale) => void
 }
 
-const fmt = (v: number | string) => {
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(n)
-}
-
 const statusStyle: Record<string, string> = {
   PAID:    'text-success bg-success/10 border-success/20',
   PARTIAL: 'text-warning bg-warning/10 border-warning/20',
@@ -54,10 +50,7 @@ const statusStyle: Record<string, string> = {
   PENDING: 'text-destructive bg-destructive/10 border-destructive/20',
 }
 
-const PAYMENT_LABELS: Record<string, string> = {
-  CASH: 'Cash', CARD: 'Card', CHECK: 'Check', TRANSFER: 'Bank Transfer',
-  INSTALLMENT: 'Installment', CREDIT: 'Credit', OTHER: 'Other',
-}
+const PAYMENT_LABELS: Record<string, string> = PAYMENT_METHODS
 
 function TableSkeleton() {
   return (
@@ -83,7 +76,7 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
   const [total, setTotal] = useState(0)
   const [returnSale, setReturnSale] = useState<Sale | null>(null)
   const limit = 10
-  const { t } = useLanguage()
+  const { t, formatCurrency, formatDate, formatTime, te } = useLanguage()
   const { selectedDate, selectedDateStr, isToday } = useSelectedDate()
 
   useEffect(() => { setPage(1) }, [selectedDateStr])
@@ -96,8 +89,8 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
       const response = await apiFetch(`/api/sales?${params}`)
       const result = await response.json()
       if (result.success) { setSales(result.data); setTotal(result.pagination.total) }
-      else toast.error(result.error || 'Failed to fetch sales')
-    } catch { toast.error('Failed to fetch sales') }
+      else toast.error(result.error ? te(result.error) : t('Failed to fetch sales'))
+    } catch { toast.error(t('Failed to fetch sales')) }
     finally { setLoading(false) }
   }
 
@@ -109,30 +102,30 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
       if (result.success && result.data) {
         onPrintReceipt?.(result.data as Sale)
       } else {
-        toast.error(result.error || 'Could not load sale details')
+        toast.error(result.error ? te(result.error) : t('Could not load sale details'))
       }
     } catch {
-      toast.error('Failed to load sale')
+      toast.error(t('Failed to load sale'))
     } finally {
       setFetchingId(null)
     }
   }
 
   async function handleDelete(saleId: string) {
-    if (!confirm('Delete this sale? This cannot be undone.')) return
+    if (!confirm(t('Delete this sale? This cannot be undone.'))) return
     try {
       const response = await apiFetch(`/api/sales/${saleId}`, { method: 'DELETE' })
       const result = await response.json()
-      if (result.success) { toast.success('Sale deleted'); fetchSales() }
-      else toast.error(result.error || 'Failed to delete')
-    } catch { toast.error('Failed to delete sale') }
+      if (result.success) { toast.success(t('Sale deleted')); fetchSales() }
+      else toast.error(result.error ? te(result.error) : t('Failed to delete'))
+    } catch { toast.error(t('Failed to delete sale')) }
   }
 
   const pages = Math.ceil(total / limit)
 
   const dayLabel = isToday
-    ? 'Today'
-    : selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    ? t('Today')
+    : formatDate(selectedDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <Card className="shadow-sm">
@@ -170,7 +163,7 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
             <p className="text-xs text-muted-foreground mt-1">
               {search
                 ? t('Try a different search term.')
-                : `No sales recorded for ${dayLabel}.`}
+                : `${t('No sales recorded for')} ${dayLabel}.`}
             </p>
           </div>
         ) : (
@@ -199,16 +192,14 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
                           <code className="text-xs font-mono font-semibold">{sale.saleNumber}</code>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(sale.createdAt).toLocaleTimeString('en-US', {
-                            hour: '2-digit', minute: '2-digit', hour12: true,
-                          })}
+                          {formatTime(sale.createdAt)}
                         </TableCell>
                         <TableCell className="text-sm font-medium">{sale.customer?.name || '—'}</TableCell>
-                        <TableCell className="text-right text-sm font-bold tabular-nums">{fmt(sale.totalAmount)}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums text-green-600 font-semibold">{fmt(sale.paidAmount)}</TableCell>
+                        <TableCell className="text-right text-sm font-bold tabular-nums">{formatCurrency(sale.totalAmount)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-green-600 font-semibold">{formatCurrency(sale.paidAmount)}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">
                           <span className={cn('font-semibold', remaining > 0 ? 'text-destructive' : 'text-muted-foreground')}>
-                            {fmt(remaining)}
+                            {formatCurrency(remaining)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -216,11 +207,11 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
                             'inline-flex text-xs font-semibold border rounded-full px-2 py-0.5',
                             statusStyle[sale.status] ?? 'text-muted-foreground bg-muted border-border',
                           )}>
-                            {sale.status}
+                            {t(sale.status)}
                           </span>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {PAYMENT_LABELS[sale.paymentMethod] ?? sale.paymentMethod}
+                          {t(PAYMENT_LABELS[sale.paymentMethod] ?? sale.paymentMethod)}
                         </TableCell>
                         <TableCell className="text-right pe-4">
                           <div className="flex items-center justify-end gap-1">
@@ -239,7 +230,7 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
                               className="h-7 w-7 text-muted-foreground hover:text-primary"
                               onClick={() => handlePrint(sale.id)}
                               disabled={fetchingId === sale.id}
-                              title="Print / Reprint Receipt"
+                              title={t('Print / Reprint Receipt')}
                             >
                               <Printer className={cn('h-3.5 w-3.5', fetchingId === sale.id && 'animate-pulse')} />
                             </Button>
@@ -248,7 +239,7 @@ export function SalesList({ onPrintReceipt }: SalesListProps) {
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-destructive"
                               onClick={() => handleDelete(sale.id)}
-                              title="Delete"
+                              title={t('Delete')}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
